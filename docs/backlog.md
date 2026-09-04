@@ -17,11 +17,11 @@ Levantado a partir da interpretação das dores do cliente descritas no plano de
 - [x] Esboçar o diagrama de classes do domínio.
 
 ### Sprint 1 — Domínio e Associações
-- [ ] Modelar `LancamentoFinanceiro` (base) e as especializações `Receita` e `Despesa`.
-- [ ] Modelar `Categoria` e associá-la aos lançamentos (agregação — categoria existe independente do lançamento).
-- [ ] Modelar `Orcamento` composto por `ItemOrcamento` (composição — item de orçamento não existe sem o orçamento).
-- [ ] Definir gestão de identidade das entidades (ex.: Id único por lançamento/orçamento).
-- [ ] Validar as associações com testes manuais/exemplos de uso.
+- [x] Modelar `LancamentoFinanceiro` (base) e as especializações `Receita` e `Despesa`.
+- [x] Modelar `Categoria` e associá-la aos lançamentos (agregação — categoria existe independente do lançamento).
+- [x] Modelar `Orcamento` composto por `ItemOrcamento` (composição — item de orçamento não existe sem o orçamento).
+- [x] Definir gestão de identidade das entidades (ex.: Id único por lançamento/orçamento).
+- [x] Validar as associações com testes automatizados (xUnit).
 
 ### Backlog futuro (a detalhar nos próximos sprints, conforme plano de ensino)
 - [ ] Consultas com coleções genéricas e LINQ (ex.: total de despesas por categoria, saldo do período).

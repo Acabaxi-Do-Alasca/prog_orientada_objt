@@ -28,6 +28,17 @@ A persistência em arquivo texto é intencional: a disciplina de banco de dados 
 - [Backlog inicial](docs/backlog.md)
 - [Diagrama de classes (esboço)](docs/diagrama-classes.md)
 
+## Estrutura do código
+
+- `src/ControleFinanceiro.Model` — entidades de domínio (`LancamentoFinanceiro`, `Receita`, `Despesa`, `Categoria`, `Orcamento`, `ItemOrcamento`).
+- `tests/ControleFinanceiro.Model.Tests` — testes xUnit que validam as associações (composição, agregação) e a gestão de identidade.
+
+### Rodando o projeto
+
+```bash
+dotnet test
+```
+
 ## Papéis do grupo
 
 Os papéis são rotativos a cada sprint: Líder/Coordenador, Desenvolvedor, Revisor/QA, Documentador.
