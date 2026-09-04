@@ -34,7 +34,7 @@ Os papéis são rotativos a cada sprint: Líder/Coordenador, Desenvolvedor, Revi
 
 | Sprint | Líder/Coordenador | Desenvolvedor | Revisor/QA | Documentador |
 |---|---|---|---|---|
-| Sprint 0 | | | | |
+| Sprint 0 | Kelvin | Leonardo Mendonça | Daivid | Bruno |
 
 ## Roadmap de Sprints
 
