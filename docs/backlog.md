@@ -23,13 +23,20 @@ Levantado a partir da interpretação das dores do cliente descritas no plano de
 - [x] Definir gestão de identidade das entidades (ex.: Id único por lançamento/orçamento).
 - [x] Validar as associações com testes automatizados (xUnit).
 
+### Sprint 2 — Coleções e Windows Forms
+- [x] Armazenar categorias e lançamentos em coleções genéricas (`List`, `Dictionary`, `HashSet`).
+- [x] Implementar filtros e totais com iteração tradicional (`foreach`, `for`, condições).
+- [x] Criar o projeto Windows Forms com os controles básicos (`TextBox`, `Button`, `Label`, `DataGridView`, `ListBox`, `ComboBox`).
+- [x] Tela de cadastro de categoria e de lançamento (receita/despesa).
+- [x] Listagem dos lançamentos em `DataGridView`, com filtro por tipo e total, alimentados pelas coleções genéricas.
+- [ ] Peer review da sprint.
+
 ### Backlog futuro (a detalhar nos próximos sprints, conforme plano de ensino)
-- [ ] Consultas com coleções genéricas e LINQ (ex.: total de despesas por categoria, saldo do período).
 - [ ] Comparação entre orçamento planejado e realizado, com cálculo de desvio.
 - [ ] Alertas de vencimento de lançamentos.
 - [ ] Herança/polimorfismo para tipos de lançamento e classes abstratas/interfaces onde fizer sentido.
-- [ ] Camada de persistência em arquivo texto (repositórios).
-- [ ] Estrutura multicamadas (Model, Service, Persistence, Presentation).
+- [ ] Camada de persistência em arquivo texto (repositórios), substituindo o armazenamento em coleções em memória.
+- [ ] Estrutura multicamadas completa (Model, Service, Persistence, Presentation).
 - [ ] Tratamento de exceções, sobrecarga e sobreposição de membros.
 - [ ] Relatório técnico final.
 
