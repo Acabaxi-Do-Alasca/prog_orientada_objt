@@ -41,17 +41,18 @@ dotnet test
 
 ## Papéis do grupo
 
-Os papéis são rotativos a cada sprint: Líder/Coordenador, Desenvolvedor, Revisor/QA, Documentador.
+Os papéis são rotativos a cada sprint: Líder/Coordenador, Desenvolvedor, Revisor/QA, Documentador. A cada sprint, cada pessoa avança uma posição para a direita (Líder → Desenvolvedor → Revisor/QA → Documentador → Líder).
 
 | Sprint | Líder/Coordenador | Desenvolvedor | Revisor/QA | Documentador |
 |---|---|---|---|---|
 | Sprint 0 | Kelvin | Leonardo Mendonça | Daivid | Bruno |
+| Sprint 1 | Bruno | Kelvin | Leonardo Mendonça | Daivid |
 
 ## Roadmap de Sprints
 
-- **Sprint 0 — Setup e Modelagem** (semanas 1-2): formação do grupo, escolha do projeto, setup do Git, interpretação das dores do cliente, esboço do diagrama de classes.
-- **Sprint 1 — Domínio e Associações** (semanas 3-5): implementação das classes base, composição e agregação, gestão de identidade.
-- Próximos sprints seguem o plano de ensino da disciplina (coleções genéricas e LINQ, herança/polimorfismo/interfaces, arquitetura multicamadas, tratamento de exceções).
+- ✅ **Sprint 0 — Setup e Modelagem** (semanas 1-2): formação do grupo, escolha do projeto, setup do Git, interpretação das dores do cliente, esboço do diagrama de classes. Entrega: [README](README.md), [backlog inicial](docs/backlog.md) e [diagrama de classes](docs/diagrama-classes.md).
+- ✅ **Sprint 1 — Domínio e Associações** (semanas 3-5): implementação das classes base, composição e agregação, gestão de identidade. Entrega: [`src/ControleFinanceiro.Model`](src/ControleFinanceiro.Model) e [testes](tests/ControleFinanceiro.Model.Tests) validando as associações.
+- ⏳ Próximos sprints seguem o plano de ensino da disciplina (coleções genéricas e LINQ, herança/polimorfismo/interfaces, arquitetura multicamadas, tratamento de exceções).
 
 ## Regras de funcionamento
 
