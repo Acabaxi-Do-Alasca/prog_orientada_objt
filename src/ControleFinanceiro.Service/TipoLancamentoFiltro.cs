@@ -1,4 +1,4 @@
-namespace ControleFinanceiro.Persistence;
+namespace ControleFinanceiro.Service;
 
 public enum TipoLancamentoFiltro
 {

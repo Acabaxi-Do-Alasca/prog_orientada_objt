@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Globalization;
 using ControleFinanceiro.Model;
 using ControleFinanceiro.Persistence;
+using ControleFinanceiro.Service;
 
 namespace ControleFinanceiro.Presentation.WinForms;
 
@@ -8,7 +10,7 @@ public class FormPrincipal : Form
 {
     private const int DiasAlerta = 5;
 
-    private readonly RepositorioMemoria _repositorio = new();
+    private readonly ServicoFinanceiro _servico;
 
     // Cadastro de categoria
     private readonly TextBox _txtNomeCategoria = new();
@@ -59,8 +61,10 @@ public class FormPrincipal : Form
     private readonly DataGridView _dgvAlertas = NovaGradeDeLancamentos();
     private readonly Button _btnMarcarPagoAlerta = new() { Text = "Marcar selecionado como pago" };
 
-    public FormPrincipal()
+    public FormPrincipal(ServicoFinanceiro servico, string pastaDosDados)
     {
+        _servico = servico;
+
         // As posições abaixo estão em pixels de uma tela a 100% (96 DPI); o modo Dpi as amplia
         // junto com a fonte em telas com escala maior (125%, 150%), evitando sobreposição.
         SuspendLayout();
@@ -68,9 +72,9 @@ public class FormPrincipal : Form
         AutoScaleMode = AutoScaleMode.Dpi;
 
         Text = "Controle Financeiro — Célia Doces";
-        ClientSize = new Size(940, 690);
+        ClientSize = new Size(940, 712);
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(960, 730);
+        MinimumSize = new Size(960, 752);
 
         var abaLancamentos = new TabPage("Lançamentos") { UseVisualStyleBackColor = true };
         abaLancamentos.Controls.AddRange([MontarGrupoCategoria(), MontarGrupoLancamento(), MontarGrupoListagem()]);
@@ -86,14 +90,30 @@ public class FormPrincipal : Form
 
         Controls.Add(abas);
         Controls.Add(_lblAviso);
+        Controls.Add(MontarBarraDeStatus(pastaDosDados));
         // O controle com Dock.Fill precisa ficar na frente para ocupar só o espaço que sobra abaixo do aviso.
         abas.BringToFront();
 
         ResumeLayout(false);
         PerformLayout();
 
-        CarregarDadosIniciais();
+        RecarregarCategorias();
         AtualizarTela();
+    }
+
+    private static StatusStrip MontarBarraDeStatus(string pastaDosDados)
+    {
+        var rotulo = new ToolStripStatusLabel($"Dados salvos em: {pastaDosDados}") { Spring = true, TextAlign = ContentAlignment.MiddleLeft };
+        var abrirPasta = new ToolStripStatusLabel("Abrir pasta") { IsLink = true };
+        abrirPasta.Click += (_, _) =>
+        {
+            Directory.CreateDirectory(pastaDosDados);
+            Process.Start(new ProcessStartInfo("explorer.exe") { ArgumentList = { pastaDosDados } });
+        };
+
+        var barra = new StatusStrip { SizingGrip = false };
+        barra.Items.AddRange([rotulo, abrirPasta]);
+        return barra;
     }
 
     /// <param name="pesos">Peso relativo da largura de cada coluna (padrão 100), para textos longos não serem cortados.</param>
@@ -307,24 +327,20 @@ public class FormPrincipal : Form
         return grupo;
     }
 
-    private void CarregarDadosIniciais()
+    private void RecarregarCategorias()
     {
-        // Categorias de exemplo do negócio da cliente (Célia Doces), para facilitar a demonstração.
-        AdicionarCategoriaNaTela(_repositorio.AdicionarCategoria("Venda de encomendas", TipoCategoria.Receita));
-        AdicionarCategoriaNaTela(_repositorio.AdicionarCategoria("Ingredientes", TipoCategoria.Despesa));
-    }
+        _lstCategorias.Items.Clear();
+        foreach (var categoria in _servico.Categorias.OrderBy(categoria => categoria.Id))
+            _lstCategorias.Items.Add(categoria);
 
-    private void AdicionarCategoriaNaTela(Categoria categoria)
-    {
-        _lstCategorias.Items.Add(categoria);
         RecarregarCategoriasDoLancamento();
-        PreencherComboDeCategorias(_cmbCategoriaOrcamento, _repositorio.Categorias);
+        PreencherComboDeCategorias(_cmbCategoriaOrcamento, _servico.Categorias);
     }
 
     private void RecarregarCategoriasDoLancamento()
     {
         var tipo = (TipoCategoria)_cmbTipoLancamento.SelectedItem!;
-        PreencherComboDeCategorias(_cmbCategoriaLancamento, _repositorio.Categorias.Where(categoria => categoria.Tipo == tipo));
+        PreencherComboDeCategorias(_cmbCategoriaLancamento, _servico.Categorias.Where(categoria => categoria.Tipo == tipo));
     }
 
     private static void PreencherComboDeCategorias(ComboBox combo, IEnumerable<Categoria> categorias)
@@ -344,22 +360,36 @@ public class FormPrincipal : Form
     private static bool TentarLerValor(string texto, out decimal valor) =>
         decimal.TryParse(texto.Trim().Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out valor);
 
+    /// <summary>
+    /// Executa uma operação do serviço e mostra no rótulo os erros esperados: dado inválido
+    /// (<see cref="ArgumentException"/>) ou falha ao salvar o arquivo (<see cref="ArquivoDeDadosException"/>).
+    /// </summary>
+    private static bool Executar(Label mensagem, Action operacao)
+    {
+        try
+        {
+            operacao();
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or ArquivoDeDadosException)
+        {
+            mensagem.Text = ex.Message;
+            return false;
+        }
+    }
+
     private void BtnAdicionarCategoria_Click(object? sender, EventArgs e)
     {
         _lblMensagem.Text = string.Empty;
-        var nome = _txtNomeCategoria.Text.Trim();
         var tipo = (TipoCategoria)_cmbTipoCategoria.SelectedItem!;
 
-        try
+        var cadastrou = Executar(_lblMensagem, () => _servico.CadastrarCategoria(_txtNomeCategoria.Text, tipo));
+        RecarregarCategorias();
+
+        if (cadastrou)
         {
-            var categoria = _repositorio.AdicionarCategoria(nome, tipo);
-            AdicionarCategoriaNaTela(categoria);
             _txtNomeCategoria.Clear();
             _txtNomeCategoria.Focus();
-        }
-        catch (ArgumentException ex)
-        {
-            _lblMensagem.Text = ex.Message;
         }
     }
 
@@ -380,33 +410,22 @@ public class FormPrincipal : Form
             return;
         }
 
-        var descricao = _txtDescricao.Text.Trim();
-
-        try
+        var registrou = Executar(_lblMensagem, () =>
         {
-            var vencimento = _dtpVencimento.Value.Date;
+            if (tipo == TipoCategoria.Receita)
+                _servico.RegistrarReceita(_dtpVencimento.Value, valor, _txtDescricao.Text, categoria, _txtOrigem.Text, _chkPago.Checked);
+            else
+                _servico.RegistrarDespesa(_dtpVencimento.Value, valor, _txtDescricao.Text, categoria, _chkPago.Checked);
+        });
+        AtualizarTela();
 
-            LancamentoFinanceiro lancamento = tipo == TipoCategoria.Receita
-                ? new Receita(vencimento, valor, descricao, categoria,
-                    string.IsNullOrWhiteSpace(_txtOrigem.Text) ? "Não informado" : _txtOrigem.Text.Trim())
-                : new Despesa(vencimento, valor, descricao, categoria);
-
-            if (_chkPago.Checked)
-                lancamento.MarcarComoPago();
-
-            _repositorio.AdicionarLancamento(lancamento);
-
+        if (registrou)
+        {
             _txtDescricao.Clear();
             _txtValor.Clear();
             _txtOrigem.Clear();
             _chkPago.Checked = false;
             _txtDescricao.Focus();
-
-            AtualizarTela();
-        }
-        catch (ArgumentException ex)
-        {
-            _lblMensagem.Text = ex.Message;
         }
     }
 
@@ -429,17 +448,12 @@ public class FormPrincipal : Form
             return;
         }
 
-        try
-        {
-            var mes = _dtpMesOrcamento.Value;
-            _repositorio.ObterOrcamento(mes.Month, mes.Year).AdicionarItem(categoria, valorPlanejado);
+        var mes = _dtpMesOrcamento.Value;
+        var definiu = Executar(_lblMensagemOrcamento, () => _servico.DefinirValorPlanejado(mes.Month, mes.Year, categoria, valorPlanejado));
+        AtualizarOrcamento();
+
+        if (definiu)
             _txtValorPlanejado.Clear();
-            AtualizarOrcamento();
-        }
-        catch (ArgumentException ex)
-        {
-            _lblMensagemOrcamento.Text = ex.Message;
-        }
     }
 
     private void AtualizarTela()
@@ -451,7 +465,7 @@ public class FormPrincipal : Form
 
     private void AtualizarGrid(TipoLancamentoFiltro filtro)
     {
-        var lancamentosFiltrados = _repositorio.FiltrarPorTipo(filtro);
+        var lancamentosFiltrados = _servico.FiltrarPorTipo(filtro);
 
         // Iteração tradicional (foreach) para projetar as entidades de domínio em itens de exibição.
         var itensParaExibicao = new List<LancamentoGridItem>();
@@ -468,9 +482,9 @@ public class FormPrincipal : Form
 
     private void AtualizarResumoDoCaixa()
     {
-        var receitas = _repositorio.CalcularTotal(TipoLancamentoFiltro.Receitas);
-        var despesas = _repositorio.CalcularTotal(TipoLancamentoFiltro.Despesas);
-        var saldo = _repositorio.CalcularSaldo();
+        var receitas = _servico.CalcularTotal(TipoLancamentoFiltro.Receitas);
+        var despesas = _servico.CalcularTotal(TipoLancamentoFiltro.Despesas);
+        var saldo = _servico.CalcularSaldo();
 
         _lblResumo.Text = $"Receitas: {receitas:C}    Despesas: {despesas:C}";
         _lblSaldo.Text = $"Saldo: {saldo:C}";
@@ -480,7 +494,7 @@ public class FormPrincipal : Form
     private void AtualizarOrcamento()
     {
         var mes = _dtpMesOrcamento.Value;
-        var itens = _repositorio.CompararOrcamento(mes.Month, mes.Year)
+        var itens = _servico.CompararOrcamento(mes.Month, mes.Year)
             .OrderBy(comparacao => comparacao.Categoria.Tipo)
             .ThenBy(comparacao => comparacao.Categoria.Nome)
             .Select(OrcamentoGridItem.DeComparacao)
@@ -501,7 +515,7 @@ public class FormPrincipal : Form
     private void AtualizarAlertas()
     {
         var hoje = DateTime.Today;
-        var alertas = _repositorio.ListarAlertasDeVencimento(hoje, DiasAlerta)
+        var alertas = _servico.ListarAlertasDeVencimento(hoje, DiasAlerta)
             .Select(lancamento => LancamentoGridItem.DeLancamento(lancamento, hoje, DiasAlerta))
             .ToList();
 
@@ -540,7 +554,15 @@ public class FormPrincipal : Form
             return;
         }
 
-        _repositorio.BuscarPorId(item.Id)?.MarcarComoPago();
+        try
+        {
+            _servico.MarcarComoPago(item.Id);
+        }
+        catch (ArquivoDeDadosException ex)
+        {
+            MessageBox.Show(ex.Message, "Não foi possível salvar", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
         AtualizarTela();
     }
 

@@ -10,5 +10,12 @@ public class Despesa : LancamentoFinanceiro
         Recorrente = recorrente;
     }
 
+    /// <summary>Recria uma despesa já existente (lida do arquivo) mantendo o Id original.</summary>
+    internal Despesa(int id, DateTime data, decimal valor, string descricao, Categoria categoria, bool recorrente)
+        : base(id, data, valor, descricao, categoria)
+    {
+        Recorrente = recorrente;
+    }
+
     public override decimal ImpactoNoSaldo => -Valor;
 }

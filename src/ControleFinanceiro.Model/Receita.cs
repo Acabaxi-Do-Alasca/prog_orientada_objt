@@ -7,11 +7,20 @@ public class Receita : LancamentoFinanceiro
     public Receita(DateTime data, decimal valor, string descricao, Categoria categoria, string origemRecebimento)
         : base(data, valor, descricao, categoria)
     {
-        if (string.IsNullOrWhiteSpace(origemRecebimento))
-            throw new ArgumentException("Origem do recebimento é obrigatória.", nameof(origemRecebimento));
-
-        OrigemRecebimento = origemRecebimento;
+        OrigemRecebimento = ValidarOrigem(origemRecebimento);
     }
+
+    /// <summary>Recria uma receita já existente (lida do arquivo) mantendo o Id original.</summary>
+    internal Receita(int id, DateTime data, decimal valor, string descricao, Categoria categoria, string origemRecebimento)
+        : base(id, data, valor, descricao, categoria)
+    {
+        OrigemRecebimento = ValidarOrigem(origemRecebimento);
+    }
+
+    private static string ValidarOrigem(string origemRecebimento) =>
+        string.IsNullOrWhiteSpace(origemRecebimento)
+            ? throw new ArgumentException("Origem do recebimento é obrigatória.", nameof(origemRecebimento))
+            : origemRecebimento;
 
     public override decimal ImpactoNoSaldo => Valor;
 }

@@ -3,9 +3,11 @@
     <Project Path="src/ControleFinanceiro.Model/ControleFinanceiro.Model.csproj" />
     <Project Path="src/ControleFinanceiro.Persistence/ControleFinanceiro.Persistence.csproj" />
     <Project Path="src/ControleFinanceiro.Presentation.WinForms/ControleFinanceiro.Presentation.WinForms.csproj" />
+    <Project Path="src/ControleFinanceiro.Service/ControleFinanceiro.Service.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ControleFinanceiro.Model.Tests/ControleFinanceiro.Model.Tests.csproj" />
     <Project Path="tests/ControleFinanceiro.Persistence.Tests/ControleFinanceiro.Persistence.Tests.csproj" />
+    <Project Path="tests/ControleFinanceiro.Service.Tests/ControleFinanceiro.Service.Tests.csproj" />
   </Folder>
 </Solution>

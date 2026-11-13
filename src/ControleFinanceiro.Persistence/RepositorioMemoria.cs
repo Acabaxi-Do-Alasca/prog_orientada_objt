@@ -3,13 +3,12 @@ using ControleFinanceiro.Model;
 namespace ControleFinanceiro.Persistence;
 
 /// <summary>
-/// Armazena as entidades em coleções genéricas, em memória. Etapa intermediária antes
-/// da persistência em arquivo texto (planejada para uma sprint futura).
+/// Guarda as entidades em coleções genéricas, em memória. Os dados somem quando o programa fecha;
+/// <see cref="RepositorioArquivoTexto"/> herda desta classe para gravá-los em arquivo.
 /// </summary>
-public class RepositorioMemoria
+public class RepositorioMemoria : IRepositorioFinanceiro
 {
-    // HashSet: Categoria já implementa Equals/GetHashCode por Id, então o HashSet
-    // impede que a mesma categoria seja adicionada duas vezes.
+    // HashSet: Categoria implementa Equals/GetHashCode por Id, então a mesma categoria não entra duas vezes.
     private readonly HashSet<Categoria> _categorias = new();
 
     // List: mantém a ordem de cadastro dos lançamentos.
@@ -24,81 +23,29 @@ public class RepositorioMemoria
     public IReadOnlyCollection<Categoria> Categorias => _categorias;
     public IReadOnlyList<LancamentoFinanceiro> Lancamentos => _lancamentos.AsReadOnly();
 
-    public Categoria AdicionarCategoria(string nome, TipoCategoria tipo)
+    protected IReadOnlyCollection<Orcamento> Orcamentos => _orcamentos.Values;
+
+    public void AdicionarCategoria(Categoria categoria)
     {
-        var categoria = new Categoria(nome, tipo);
+        ArgumentNullException.ThrowIfNull(categoria);
         _categorias.Add(categoria);
-        return categoria;
     }
 
     public void AdicionarLancamento(LancamentoFinanceiro lancamento)
     {
         ArgumentNullException.ThrowIfNull(lancamento);
 
+        if (!_categorias.Contains(lancamento.Categoria))
+            throw new ArgumentException($"A categoria \"{lancamento.Categoria.Nome}\" não está cadastrada.", nameof(lancamento));
+        if (!_lancamentosPorId.TryAdd(lancamento.Id, lancamento))
+            throw new ArgumentException($"Já existe um lançamento com o Id {lancamento.Id}.", nameof(lancamento));
+
         _lancamentos.Add(lancamento);
-        _lancamentosPorId[lancamento.Id] = lancamento;
     }
 
-    public LancamentoFinanceiro? BuscarPorId(int id) =>
+    public LancamentoFinanceiro? BuscarLancamentoPorId(int id) =>
         _lancamentosPorId.TryGetValue(id, out var lancamento) ? lancamento : null;
 
-    /// <summary>Filtra os lançamentos por tipo usando iteração tradicional (foreach + condição).</summary>
-    public List<LancamentoFinanceiro> FiltrarPorTipo(TipoLancamentoFiltro filtro)
-    {
-        var resultado = new List<LancamentoFinanceiro>();
-
-        foreach (var lancamento in _lancamentos)
-        {
-            var atendeAoFiltro = filtro switch
-            {
-                TipoLancamentoFiltro.Receitas => lancamento is Receita,
-                TipoLancamentoFiltro.Despesas => lancamento is Despesa,
-                _ => true
-            };
-
-            if (atendeAoFiltro)
-                resultado.Add(lancamento);
-        }
-
-        return resultado;
-    }
-
-    /// <summary>Soma o valor dos lançamentos filtrados usando iteração tradicional (for).</summary>
-    public decimal CalcularTotal(TipoLancamentoFiltro filtro)
-    {
-        var filtrados = FiltrarPorTipo(filtro);
-        decimal total = 0m;
-
-        for (var i = 0; i < filtrados.Count; i++)
-        {
-            total += filtrados[i].Valor;
-        }
-
-        return total;
-    }
-
-    /// <summary>
-    /// Lançamentos não pagos que já venceram ou vencem nos próximos <paramref name="diasAlerta"/> dias,
-    /// do vencimento mais antigo para o mais recente.
-    /// </summary>
-    public List<LancamentoFinanceiro> ListarAlertasDeVencimento(DateTime referencia, int diasAlerta)
-    {
-        var alertas = new List<LancamentoFinanceiro>();
-
-        foreach (var lancamento in _lancamentos)
-        {
-            if (lancamento.EstaVencido(referencia) || lancamento.VencimentoProximo(referencia, diasAlerta))
-                alertas.Add(lancamento);
-        }
-
-        alertas.Sort((a, b) => a.Data.CompareTo(b.Data));
-        return alertas;
-    }
-
-    /// <summary>Saldo do caixa: receitas menos despesas, via polimorfismo de <see cref="LancamentoFinanceiro.ImpactoNoSaldo"/>.</summary>
-    public decimal CalcularSaldo() => _lancamentos.Sum(lancamento => lancamento.ImpactoNoSaldo);
-
-    /// <summary>Retorna o orçamento do mês, criando um vazio se ainda não existir.</summary>
     public Orcamento ObterOrcamento(int mes, int ano)
     {
         if (!_orcamentos.TryGetValue((ano, mes), out var orcamento))
@@ -110,6 +57,8 @@ public class RepositorioMemoria
         return orcamento;
     }
 
-    public IReadOnlyList<ComparacaoOrcamento> CompararOrcamento(int mes, int ano) =>
-        ObterOrcamento(mes, ano).CompararCom(_lancamentos);
+    /// <summary>Em memória não há o que gravar; as subclasses sobrescrevem para persistir.</summary>
+    public virtual void Salvar()
+    {
+    }
 }

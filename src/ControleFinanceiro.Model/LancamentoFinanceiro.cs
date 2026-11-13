@@ -14,7 +14,7 @@ public enum StatusLancamento
 /// </summary>
 public abstract class LancamentoFinanceiro : IEquatable<LancamentoFinanceiro>
 {
-    private static int _proximoId = 1;
+    private static readonly GeradorDeId Ids = new();
 
     public int Id { get; }
     public DateTime Data { get; set; }
@@ -26,13 +26,20 @@ public abstract class LancamentoFinanceiro : IEquatable<LancamentoFinanceiro>
     public Categoria Categoria { get; }
 
     protected LancamentoFinanceiro(DateTime data, decimal valor, string descricao, Categoria categoria)
+        : this(Ids.Proximo(), data, valor, descricao, categoria)
+    {
+    }
+
+    /// <summary>Recria um lançamento já existente (lido do arquivo) mantendo o Id original.</summary>
+    private protected LancamentoFinanceiro(int id, DateTime data, decimal valor, string descricao, Categoria categoria)
     {
         if (valor <= 0)
             throw new ArgumentOutOfRangeException(nameof(valor), "O valor deve ser maior que zero.");
         if (string.IsNullOrWhiteSpace(descricao))
             throw new ArgumentException("Descrição é obrigatória.", nameof(descricao));
 
-        Id = _proximoId++;
+        Ids.Registrar(id);
+        Id = id;
         Data = data;
         Valor = valor;
         Descricao = descricao;

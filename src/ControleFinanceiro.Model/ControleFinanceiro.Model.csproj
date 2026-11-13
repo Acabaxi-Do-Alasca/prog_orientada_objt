@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="ControleFinanceiro.Model.Tests" />
+    <!-- A persistência recria as entidades com o Id original usando os construtores internal. -->
+    <InternalsVisibleTo Include="ControleFinanceiro.Persistence" />
   </ItemGroup>
 
 </Project>

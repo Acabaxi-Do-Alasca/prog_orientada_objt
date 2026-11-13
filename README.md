@@ -19,7 +19,7 @@ Aplicação em **C# / .NET**, estruturada em camadas:
 | `Model` | Entidades de domínio (lançamentos, categorias, orçamentos) |
 | `Service` | Regras de negócio (cálculo de saldo, comparação com orçamento, alertas) |
 | `Persistence` | Repositórios em **arquivo texto** (sem banco de dados nesta etapa do curso) |
-| `Presentation` | Interação com o usuário (console) |
+| `Presentation` | Interação com o usuário (Windows Forms) |
 
 A persistência em arquivo texto é intencional: a disciplina de banco de dados ainda não foi cursada pela turma. A camada de Persistência foi isolada por trás de repositórios para permitir migração futura para um banco relacional sem impacto nas demais camadas.
 
@@ -30,17 +30,23 @@ A persistência em arquivo texto é intencional: a disciplina de banco de dados 
 
 ## Estrutura do código
 
-- `src/ControleFinanceiro.Model` — entidades de domínio (`LancamentoFinanceiro`, `Receita`, `Despesa`, `Categoria`, `Orcamento`, `ItemOrcamento`).
-- `src/ControleFinanceiro.Persistence` — armazenamento das entidades em coleções genéricas (`List`, `Dictionary`, `HashSet`), etapa intermediária antes da persistência em arquivo texto.
-- `src/ControleFinanceiro.Presentation.WinForms` — tela (Windows Forms) de cadastro de categorias/lançamentos e listagem em `DataGridView`.
-- `tests/ControleFinanceiro.Model.Tests` — testes xUnit que validam as associações (composição, agregação) e a gestão de identidade.
-- `tests/ControleFinanceiro.Persistence.Tests` — testes xUnit do armazenamento em coleções (cadastro, busca por Id, filtros e totais).
+- `src/ControleFinanceiro.Model` — entidades de domínio (`LancamentoFinanceiro`, `Receita`, `Despesa`, `Categoria`, `Orcamento`, `ItemOrcamento`, `ComparacaoOrcamento`).
+- `src/ControleFinanceiro.Persistence` — interface `IRepositorioFinanceiro`; `RepositorioMemoria` (coleções genéricas `List`, `Dictionary`, `HashSet`) e `RepositorioArquivoTexto`, que herda dele e grava os dados em arquivos texto.
+- `src/ControleFinanceiro.Service` — `ServicoFinanceiro`: regras de negócio (saldo, filtros, orçamento planejado x realizado, alertas de vencimento).
+- `src/ControleFinanceiro.Presentation.WinForms` — tela em Windows Forms; monta as camadas em `Program.cs`.
+- `tests/` — testes xUnit de cada camada (Model, Persistence e Service).
 
 ### Rodando o projeto
 
 ```bash
 dotnet test
 dotnet run --project src/ControleFinanceiro.Presentation.WinForms
+```
+
+Os dados ficam em `%LOCALAPPDATA%\ControleFinanceiroCeliaDoces` (`categorias.txt`, `lancamentos.txt`, `orcamentos.txt`). Para usar outra pasta, por exemplo numa demonstração, passe o caminho como argumento:
+
+```bash
+dotnet run --project src/ControleFinanceiro.Presentation.WinForms -- "C:\caminho\da\pasta"
 ```
 
 ## Papéis do grupo

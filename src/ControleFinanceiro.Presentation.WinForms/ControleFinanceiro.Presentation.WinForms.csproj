@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ControleFinanceiro.Model\ControleFinanceiro.Model.csproj" />
     <ProjectReference Include="..\ControleFinanceiro.Persistence\ControleFinanceiro.Persistence.csproj" />
+    <ProjectReference Include="..\ControleFinanceiro.Service\ControleFinanceiro.Service.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
