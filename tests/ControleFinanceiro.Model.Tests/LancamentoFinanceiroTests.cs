@@ -78,4 +78,14 @@ public class LancamentoFinanceiroTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new Despesa(DateTime.Today, 0m, "Compra inválida", categoria));
     }
+
+    [Fact]
+    public void ImpactoNoSaldo_ReceitaSomaEDespesaSubtrai()
+    {
+        var receita = new Receita(DateTime.Today, 150m, "Venda de bolo", NovaCategoriaVendas(), "Pix");
+        var despesa = new Despesa(DateTime.Today, 40m, "Compra de farinha", NovaCategoriaIngredientes());
+
+        Assert.Equal(150m, receita.ImpactoNoSaldo);
+        Assert.Equal(-40m, despesa.ImpactoNoSaldo);
+    }
 }

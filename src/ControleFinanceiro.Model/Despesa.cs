@@ -9,4 +9,6 @@ public class Despesa : LancamentoFinanceiro
     {
         Recorrente = recorrente;
     }
+
+    public override decimal ImpactoNoSaldo => -Valor;
 }

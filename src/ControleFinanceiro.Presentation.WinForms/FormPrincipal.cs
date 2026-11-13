@@ -26,7 +26,8 @@ public class FormPrincipal : Form
     // Listagem
     private readonly ComboBox _cmbFiltro = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly Button _btnFiltrar = new() { Text = "Filtrar" };
-    private readonly Label _lblTotal = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
+    private readonly Label _lblResumo = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleRight };
+    private readonly Label _lblSaldo = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
     private readonly DataGridView _dgvLancamentos = new()
     {
         ReadOnly = true,
@@ -132,13 +133,16 @@ public class FormPrincipal : Form
         _btnFiltrar.Size = new Size(100, 25);
         _btnFiltrar.Click += BtnFiltrar_Click;
 
-        _lblTotal.Location = new Point(620, 22);
-        _lblTotal.Size = new Size(266, 25);
+        _lblResumo.Location = new Point(370, 22);
+        _lblResumo.Size = new Size(330, 25);
+
+        _lblSaldo.Location = new Point(706, 22);
+        _lblSaldo.Size = new Size(180, 25);
 
         _dgvLancamentos.Location = new Point(12, 55);
         _dgvLancamentos.Size = new Size(874, 230);
 
-        grupo.Controls.AddRange([lblFiltro, _cmbFiltro, _btnFiltrar, _lblTotal, _dgvLancamentos]);
+        grupo.Controls.AddRange([lblFiltro, _cmbFiltro, _btnFiltrar, _lblResumo, _lblSaldo, _dgvLancamentos]);
         return grupo;
     }
 
@@ -237,6 +241,17 @@ public class FormPrincipal : Form
         _dgvLancamentos.DataSource = null;
         _dgvLancamentos.DataSource = itensParaExibicao;
 
-        _lblTotal.Text = $"Total: {_repositorio.CalcularTotal(filtro):C}";
+        AtualizarResumoDoCaixa();
+    }
+
+    private void AtualizarResumoDoCaixa()
+    {
+        var receitas = _repositorio.CalcularTotal(TipoLancamentoFiltro.Receitas);
+        var despesas = _repositorio.CalcularTotal(TipoLancamentoFiltro.Despesas);
+        var saldo = _repositorio.CalcularSaldo();
+
+        _lblResumo.Text = $"Receitas: {receitas:C}    Despesas: {despesas:C}";
+        _lblSaldo.Text = $"Saldo: {saldo:C}";
+        _lblSaldo.ForeColor = saldo < 0 ? Color.Firebrick : Color.DarkGreen;
     }
 }

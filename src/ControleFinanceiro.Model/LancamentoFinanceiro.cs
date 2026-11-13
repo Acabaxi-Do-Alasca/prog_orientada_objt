@@ -40,6 +40,9 @@ public abstract class LancamentoFinanceiro : IEquatable<LancamentoFinanceiro>
         Status = StatusLancamento.Pendente;
     }
 
+    /// <summary>Quanto este lançamento altera o saldo do caixa: positivo para receita, negativo para despesa.</summary>
+    public abstract decimal ImpactoNoSaldo { get; }
+
     public bool VencimentoProximo(DateTime referencia, int diasAlerta = 5)
     {
         if (Status == StatusLancamento.Pago)

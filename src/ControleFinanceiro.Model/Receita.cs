@@ -12,4 +12,6 @@ public class Receita : LancamentoFinanceiro
 
         OrigemRecebimento = origemRecebimento;
     }
+
+    public override decimal ImpactoNoSaldo => Valor;
 }

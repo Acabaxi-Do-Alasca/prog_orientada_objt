@@ -73,4 +73,7 @@ public class RepositorioMemoria
 
         return total;
     }
+
+    /// <summary>Saldo do caixa: receitas menos despesas, via polimorfismo de <see cref="LancamentoFinanceiro.ImpactoNoSaldo"/>.</summary>
+    public decimal CalcularSaldo() => _lancamentos.Sum(lancamento => lancamento.ImpactoNoSaldo);
 }

@@ -82,4 +82,37 @@ public class RepositorioMemoriaTests
         Assert.Equal(40m, repositorio.CalcularTotal(TipoLancamentoFiltro.Despesas));
         Assert.Equal(190m, repositorio.CalcularTotal(TipoLancamentoFiltro.Todos));
     }
+
+    [Fact]
+    public void CalcularSaldo_SubtraiDespesasDasReceitas()
+    {
+        var repositorio = new RepositorioMemoria();
+        var categoriaReceita = repositorio.AdicionarCategoria("Vendas", TipoCategoria.Receita);
+        var categoriaDespesa = repositorio.AdicionarCategoria("Ingredientes", TipoCategoria.Despesa);
+
+        repositorio.AdicionarLancamento(new Receita(DateTime.Today, 100m, "Venda de bolo", categoriaReceita, "Pix"));
+        repositorio.AdicionarLancamento(new Receita(DateTime.Today, 50m, "Venda de doce", categoriaReceita, "Dinheiro"));
+        repositorio.AdicionarLancamento(new Despesa(DateTime.Today, 40m, "Compra de farinha", categoriaDespesa));
+
+        Assert.Equal(110m, repositorio.CalcularSaldo());
+    }
+
+    [Fact]
+    public void CalcularSaldo_FicaNegativo_QuandoDespesasSuperamReceitas()
+    {
+        var repositorio = new RepositorioMemoria();
+        var categoriaReceita = repositorio.AdicionarCategoria("Vendas", TipoCategoria.Receita);
+        var categoriaDespesa = repositorio.AdicionarCategoria("Aluguel", TipoCategoria.Despesa);
+
+        repositorio.AdicionarLancamento(new Receita(DateTime.Today, 300m, "Encomendas", categoriaReceita, "Pix"));
+        repositorio.AdicionarLancamento(new Despesa(DateTime.Today, 800m, "Aluguel da cozinha", categoriaDespesa));
+
+        Assert.Equal(-500m, repositorio.CalcularSaldo());
+    }
+
+    [Fact]
+    public void CalcularSaldo_EZero_SemLancamentos()
+    {
+        Assert.Equal(0m, new RepositorioMemoria().CalcularSaldo());
+    }
 }
