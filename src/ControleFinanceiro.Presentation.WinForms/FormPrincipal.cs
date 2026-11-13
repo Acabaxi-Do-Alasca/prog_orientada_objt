@@ -14,7 +14,7 @@ public class FormPrincipal : Form
     private readonly TextBox _txtNomeCategoria = new();
     private readonly ComboBox _cmbTipoCategoria = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly Button _btnAdicionarCategoria = new() { Text = "Adicionar Categoria" };
-    private readonly ListBox _lstCategorias = new() { FormattingEnabled = true };
+    private readonly ListBox _lstCategorias = new() { FormattingEnabled = true, MultiColumn = true };
 
     // Cadastro de lançamento
     private readonly TextBox _txtDescricao = new();
@@ -144,6 +144,8 @@ public class FormPrincipal : Form
 
         _lstCategorias.Location = new Point(12, 58);
         _lstCategorias.Size = new Size(870, 32);
+        // ColumnWidth não acompanha o escalonamento automático por DPI, então é convertido à mão.
+        _lstCategorias.ColumnWidth = _lstCategorias.LogicalToDeviceUnits(215);
         _lstCategorias.Format += (_, e) =>
         {
             if (e.ListItem is Categoria categoria)
