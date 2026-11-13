@@ -52,6 +52,17 @@ public abstract class LancamentoFinanceiro : IEquatable<LancamentoFinanceiro>
         return diasParaVencer >= 0 && diasParaVencer <= diasAlerta;
     }
 
+    public void MarcarComoPago() => Status = StatusLancamento.Pago;
+
+    public bool EstaVencido(DateTime referencia) =>
+        Status != StatusLancamento.Pago && Data.Date < referencia.Date;
+
+    /// <summary>Situação na data de referência: um lançamento pendente passa a vencido depois da data.</summary>
+    public StatusLancamento SituacaoEm(DateTime referencia) =>
+        Status == StatusLancamento.Pago ? StatusLancamento.Pago
+        : EstaVencido(referencia) ? StatusLancamento.Vencido
+        : StatusLancamento.Pendente;
+
     public bool Equals(LancamentoFinanceiro? other) => other is not null && Id == other.Id;
     public override bool Equals(object? obj) => Equals(obj as LancamentoFinanceiro);
     public override int GetHashCode() => Id.GetHashCode();

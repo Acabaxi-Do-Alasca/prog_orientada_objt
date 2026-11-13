@@ -138,4 +138,25 @@ public class RepositorioMemoriaTests
         Assert.Equal(620m, comparacao.Realizado);
         Assert.True(comparacao.ForaDoPlanejado);
     }
+
+    [Fact]
+    public void ListarAlertasDeVencimento_TrazVencidosEVencendo_OrdenadosPorData()
+    {
+        var hoje = new DateTime(2026, 11, 13);
+        var repositorio = new RepositorioMemoria();
+        var contas = repositorio.AdicionarCategoria("Contas", TipoCategoria.Despesa);
+
+        var vencendo = new Despesa(hoje.AddDays(3), 200m, "Gás", contas);
+        var vencida = new Despesa(hoje.AddDays(-2), 150m, "Luz", contas);
+        var paga = new Despesa(hoje.AddDays(-5), 90m, "Água", contas);
+        paga.MarcarComoPago();
+        var distante = new Despesa(hoje.AddDays(30), 800m, "Aluguel", contas);
+
+        foreach (var lancamento in new[] { vencendo, vencida, paga, distante })
+            repositorio.AdicionarLancamento(lancamento);
+
+        var alertas = repositorio.ListarAlertasDeVencimento(hoje, diasAlerta: 5);
+
+        Assert.Equal([vencida, vencendo], alertas);
+    }
 }

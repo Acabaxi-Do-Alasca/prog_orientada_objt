@@ -6,6 +6,8 @@ namespace ControleFinanceiro.Presentation.WinForms;
 
 public class FormPrincipal : Form
 {
+    private const int DiasAlerta = 5;
+
     private readonly RepositorioMemoria _repositorio = new();
 
     // Cadastro de categoria
@@ -20,15 +22,18 @@ public class FormPrincipal : Form
     private readonly ComboBox _cmbTipoLancamento = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox _cmbCategoriaLancamento = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox _txtOrigem = new();
+    private readonly DateTimePicker _dtpVencimento = new() { Format = DateTimePickerFormat.Short };
+    private readonly CheckBox _chkPago = new() { Text = "Já pago / recebido", AutoSize = true };
     private readonly Button _btnAdicionarLancamento = new() { Text = "Adicionar Lançamento" };
     private readonly Label _lblMensagem = new() { ForeColor = Color.Firebrick, AutoSize = false };
 
     // Listagem
     private readonly ComboBox _cmbFiltro = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly Button _btnFiltrar = new() { Text = "Filtrar" };
+    private readonly Button _btnMarcarPago = new() { Text = "Marcar selecionado como pago" };
     private readonly Label _lblResumo = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleRight };
     private readonly Label _lblSaldo = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
-    private readonly DataGridView _dgvLancamentos = NovaGrade();
+    private readonly DataGridView _dgvLancamentos = NovaGradeDeLancamentos();
 
     // Orçamento
     private readonly DateTimePicker _dtpMesOrcamento = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "MM/yyyy", ShowUpDown = true };
@@ -37,14 +42,35 @@ public class FormPrincipal : Form
     private readonly Button _btnDefinirPlanejado = new() { Text = "Definir valor planejado" };
     private readonly Label _lblMensagemOrcamento = new() { ForeColor = Color.Firebrick, AutoSize = false };
     private readonly Label _lblResumoOrcamento = new() { AutoSize = false, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
-    private readonly DataGridView _dgvOrcamento = NovaGrade();
+    private readonly DataGridView _dgvOrcamento = NovaGrade(("Categoria", 160), ("Tipo", 70), ("PercentualRealizado", 80), ("Situacao", 160));
+
+    // Vencimentos
+    private readonly Label _lblAviso = new()
+    {
+        Dock = DockStyle.Top,
+        Height = 30,
+        TextAlign = ContentAlignment.MiddleLeft,
+        Padding = new Padding(10, 0, 0, 0),
+        BackColor = Color.MistyRose,
+        ForeColor = Color.Firebrick,
+        Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
+    };
+    private readonly Label _lblResumoAlertas = new() { AutoSize = false, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
+    private readonly DataGridView _dgvAlertas = NovaGradeDeLancamentos();
+    private readonly Button _btnMarcarPagoAlerta = new() { Text = "Marcar selecionado como pago" };
 
     public FormPrincipal()
     {
+        // As posições abaixo estão em pixels de uma tela a 100% (96 DPI); o modo Dpi as amplia
+        // junto com a fonte em telas com escala maior (125%, 150%), evitando sobreposição.
+        SuspendLayout();
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        AutoScaleMode = AutoScaleMode.Dpi;
+
         Text = "Controle Financeiro — Célia Doces";
-        ClientSize = new Size(940, 660);
+        ClientSize = new Size(940, 690);
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(960, 700);
+        MinimumSize = new Size(960, 730);
 
         var abaLancamentos = new TabPage("Lançamentos") { UseVisualStyleBackColor = true };
         abaLancamentos.Controls.AddRange([MontarGrupoCategoria(), MontarGrupoLancamento(), MontarGrupoListagem()]);
@@ -52,24 +78,51 @@ public class FormPrincipal : Form
         var abaOrcamento = new TabPage("Orçamento") { UseVisualStyleBackColor = true };
         abaOrcamento.Controls.AddRange([MontarGrupoDefinicaoOrcamento(), MontarGrupoComparacaoOrcamento()]);
 
+        var abaVencimentos = new TabPage("Vencimentos") { UseVisualStyleBackColor = true };
+        abaVencimentos.Controls.Add(MontarGrupoVencimentos());
+
         var abas = new TabControl { Dock = DockStyle.Fill };
-        abas.TabPages.AddRange([abaLancamentos, abaOrcamento]);
+        abas.TabPages.AddRange([abaLancamentos, abaOrcamento, abaVencimentos]);
+
         Controls.Add(abas);
+        Controls.Add(_lblAviso);
+        // O controle com Dock.Fill precisa ficar na frente para ocupar só o espaço que sobra abaixo do aviso.
+        abas.BringToFront();
+
+        ResumeLayout(false);
+        PerformLayout();
 
         CarregarDadosIniciais();
-        AtualizarGrid(TipoLancamentoFiltro.Todos);
-        AtualizarOrcamento();
+        AtualizarTela();
     }
 
-    private static DataGridView NovaGrade() => new()
+    /// <param name="pesos">Peso relativo da largura de cada coluna (padrão 100), para textos longos não serem cortados.</param>
+    private static DataGridView NovaGrade(params (string Coluna, float Peso)[] pesos)
     {
-        ReadOnly = true,
-        AllowUserToAddRows = false,
-        AllowUserToDeleteRows = false,
-        SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-        MultiSelect = false,
-        AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
-    };
+        var grade = new DataGridView
+        {
+            ReadOnly = true,
+            AllowUserToAddRows = false,
+            AllowUserToDeleteRows = false,
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            MultiSelect = false,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+        };
+
+        grade.DataBindingComplete += (_, _) =>
+        {
+            foreach (var (coluna, peso) in pesos)
+            {
+                if (grade.Columns[coluna] is { } colunaDaGrade)
+                    colunaDaGrade.FillWeight = peso;
+            }
+        };
+
+        return grade;
+    }
+
+    private static DataGridView NovaGradeDeLancamentos() =>
+        NovaGrade(("Id", 40), ("Tipo", 70), ("Descricao", 170), ("Categoria", 150), ("Status", 80));
 
     private GroupBox MontarGrupoCategoria()
     {
@@ -107,15 +160,15 @@ public class FormPrincipal : Form
 
         var lblDescricao = new Label { Text = "Descrição:", Location = new Point(12, 28), AutoSize = true };
         _txtDescricao.Location = new Point(100, 25);
-        _txtDescricao.Size = new Size(250, 23);
+        _txtDescricao.Size = new Size(200, 23);
 
-        var lblValor = new Label { Text = "Valor (R$):", Location = new Point(365, 28), AutoSize = true };
-        _txtValor.Location = new Point(445, 25);
-        _txtValor.Size = new Size(100, 23);
+        var lblValor = new Label { Text = "Valor (R$):", Location = new Point(315, 28), AutoSize = true };
+        _txtValor.Location = new Point(390, 25);
+        _txtValor.Size = new Size(85, 23);
 
-        var lblTipo = new Label { Text = "Tipo:", Location = new Point(560, 28), AutoSize = true };
-        _cmbTipoLancamento.Location = new Point(600, 25);
-        _cmbTipoLancamento.Size = new Size(120, 23);
+        var lblTipo = new Label { Text = "Tipo:", Location = new Point(490, 28), AutoSize = true };
+        _cmbTipoLancamento.Location = new Point(527, 25);
+        _cmbTipoLancamento.Size = new Size(110, 23);
         _cmbTipoLancamento.Items.AddRange([TipoCategoria.Receita, TipoCategoria.Despesa]);
         _cmbTipoLancamento.SelectedIndex = 0;
         _cmbTipoLancamento.SelectedIndexChanged += (_, _) => RecarregarCategoriasDoLancamento();
@@ -124,9 +177,15 @@ public class FormPrincipal : Form
         _cmbCategoriaLancamento.Location = new Point(100, 60);
         _cmbCategoriaLancamento.Size = new Size(250, 23);
 
+        var lblVencimento = new Label { Text = "Vencimento:", Location = new Point(652, 28), AutoSize = true };
+        _dtpVencimento.Location = new Point(735, 25);
+        _dtpVencimento.Size = new Size(150, 23);
+
         var lblOrigem = new Label { Text = "Origem (se Receita):", Location = new Point(365, 63), AutoSize = true };
-        _txtOrigem.Location = new Point(520, 60);
-        _txtOrigem.Size = new Size(200, 23);
+        _txtOrigem.Location = new Point(490, 60);
+        _txtOrigem.Size = new Size(147, 23);
+
+        _chkPago.Location = new Point(655, 62);
 
         _btnAdicionarLancamento.Location = new Point(12, 98);
         _btnAdicionarLancamento.Size = new Size(200, 28);
@@ -137,8 +196,8 @@ public class FormPrincipal : Form
 
         grupo.Controls.AddRange([
             lblDescricao, _txtDescricao, lblValor, _txtValor, lblTipo, _cmbTipoLancamento,
-            lblCategoria, _cmbCategoriaLancamento, lblOrigem, _txtOrigem,
-            _btnAdicionarLancamento, _lblMensagem
+            lblVencimento, _dtpVencimento, lblCategoria, _cmbCategoriaLancamento, lblOrigem, _txtOrigem,
+            _chkPago, _btnAdicionarLancamento, _lblMensagem
         ]);
         return grupo;
     }
@@ -157,16 +216,22 @@ public class FormPrincipal : Form
         _btnFiltrar.Size = new Size(100, 25);
         _btnFiltrar.Click += BtnFiltrar_Click;
 
-        _lblResumo.Location = new Point(370, 22);
-        _lblResumo.Size = new Size(330, 25);
+        _btnMarcarPago.Location = new Point(360, 21);
+        _btnMarcarPago.Size = new Size(210, 25);
+        _btnMarcarPago.Click += (_, _) => MarcarSelecionadoComoPago(_dgvLancamentos);
 
-        _lblSaldo.Location = new Point(706, 22);
-        _lblSaldo.Size = new Size(180, 25);
+        _lblResumo.Location = new Point(12, 52);
+        _lblResumo.Size = new Size(600, 22);
+        _lblResumo.TextAlign = ContentAlignment.MiddleLeft;
 
-        _dgvLancamentos.Location = new Point(12, 55);
-        _dgvLancamentos.Size = new Size(874, 230);
+        _lblSaldo.Location = new Point(706, 52);
+        _lblSaldo.Size = new Size(180, 22);
 
-        grupo.Controls.AddRange([lblFiltro, _cmbFiltro, _btnFiltrar, _lblResumo, _lblSaldo, _dgvLancamentos]);
+        _dgvLancamentos.Location = new Point(12, 80);
+        _dgvLancamentos.Size = new Size(874, 205);
+        _dgvLancamentos.CellFormatting += (_, e) => FormatarLinhaDeLancamento(_dgvLancamentos, e);
+
+        grupo.Controls.AddRange([lblFiltro, _cmbFiltro, _btnFiltrar, _btnMarcarPago, _lblResumo, _lblSaldo, _dgvLancamentos]);
         return grupo;
     }
 
@@ -213,6 +278,30 @@ public class FormPrincipal : Form
         _dgvOrcamento.CellFormatting += DgvOrcamento_CellFormatting;
 
         grupo.Controls.AddRange([_lblResumoOrcamento, _dgvOrcamento]);
+        return grupo;
+    }
+
+    private GroupBox MontarGrupoVencimentos()
+    {
+        var grupo = new GroupBox
+        {
+            Text = $"Lançamentos não pagos vencidos ou que vencem nos próximos {DiasAlerta} dias",
+            Location = new Point(12, 12),
+            Size = new Size(900, 578)
+        };
+
+        _lblResumoAlertas.Location = new Point(12, 25);
+        _lblResumoAlertas.Size = new Size(874, 22);
+
+        _dgvAlertas.Location = new Point(12, 52);
+        _dgvAlertas.Size = new Size(874, 470);
+        _dgvAlertas.CellFormatting += (_, e) => FormatarLinhaDeLancamento(_dgvAlertas, e);
+
+        _btnMarcarPagoAlerta.Location = new Point(12, 532);
+        _btnMarcarPagoAlerta.Size = new Size(220, 30);
+        _btnMarcarPagoAlerta.Click += (_, _) => MarcarSelecionadoComoPago(_dgvAlertas);
+
+        grupo.Controls.AddRange([_lblResumoAlertas, _dgvAlertas, _btnMarcarPagoAlerta]);
         return grupo;
     }
 
@@ -293,20 +382,25 @@ public class FormPrincipal : Form
 
         try
         {
+            var vencimento = _dtpVencimento.Value.Date;
+
             LancamentoFinanceiro lancamento = tipo == TipoCategoria.Receita
-                ? new Receita(DateTime.Today, valor, descricao, categoria,
+                ? new Receita(vencimento, valor, descricao, categoria,
                     string.IsNullOrWhiteSpace(_txtOrigem.Text) ? "Não informado" : _txtOrigem.Text.Trim())
-                : new Despesa(DateTime.Today, valor, descricao, categoria);
+                : new Despesa(vencimento, valor, descricao, categoria);
+
+            if (_chkPago.Checked)
+                lancamento.MarcarComoPago();
 
             _repositorio.AdicionarLancamento(lancamento);
 
             _txtDescricao.Clear();
             _txtValor.Clear();
             _txtOrigem.Clear();
+            _chkPago.Checked = false;
             _txtDescricao.Focus();
 
-            AtualizarGrid((TipoLancamentoFiltro)_cmbFiltro.SelectedItem!);
-            AtualizarOrcamento();
+            AtualizarTela();
         }
         catch (ArgumentException ex)
         {
@@ -346,6 +440,13 @@ public class FormPrincipal : Form
         }
     }
 
+    private void AtualizarTela()
+    {
+        AtualizarGrid((TipoLancamentoFiltro)_cmbFiltro.SelectedItem!);
+        AtualizarOrcamento();
+        AtualizarAlertas();
+    }
+
     private void AtualizarGrid(TipoLancamentoFiltro filtro)
     {
         var lancamentosFiltrados = _repositorio.FiltrarPorTipo(filtro);
@@ -354,7 +455,7 @@ public class FormPrincipal : Form
         var itensParaExibicao = new List<LancamentoGridItem>();
         foreach (var lancamento in lancamentosFiltrados)
         {
-            itensParaExibicao.Add(LancamentoGridItem.DeLancamento(lancamento));
+            itensParaExibicao.Add(LancamentoGridItem.DeLancamento(lancamento, DateTime.Today, DiasAlerta));
         }
 
         _dgvLancamentos.DataSource = null;
@@ -393,6 +494,74 @@ public class FormPrincipal : Form
                 ? "Todas as categorias estão dentro do planejado."
                 : $"{foraDoPlanejado} categoria(s) fora do planejado.";
         _lblResumoOrcamento.ForeColor = foraDoPlanejado == 0 ? Color.DarkGreen : Color.Firebrick;
+    }
+
+    private void AtualizarAlertas()
+    {
+        var hoje = DateTime.Today;
+        var alertas = _repositorio.ListarAlertasDeVencimento(hoje, DiasAlerta)
+            .Select(lancamento => LancamentoGridItem.DeLancamento(lancamento, hoje, DiasAlerta))
+            .ToList();
+
+        _dgvAlertas.DataSource = null;
+        _dgvAlertas.DataSource = alertas;
+
+        var vencidos = alertas.Count(item => item.Vencido);
+        var vencendo = alertas.Count - vencidos;
+        var descricao = DescreverAlertas(vencidos, vencendo);
+
+        _lblResumoAlertas.Text = alertas.Count == 0
+            ? "Nenhuma conta vencida ou a vencer nos próximos dias."
+            : $"{descricao}.";
+        _lblResumoAlertas.ForeColor = alertas.Count == 0 ? Color.DarkGreen : Color.Firebrick;
+
+        _lblAviso.Visible = alertas.Count > 0;
+        _lblAviso.Text = $"Atenção: {descricao}. Veja a aba Vencimentos.";
+    }
+
+    private static string DescreverAlertas(int vencidos, int vencendo)
+    {
+        var partes = new List<string>();
+        if (vencidos > 0)
+            partes.Add($"{vencidos} lançamento(s) vencido(s)");
+        if (vencendo > 0)
+            partes.Add($"{vencendo} vencendo em até {DiasAlerta} dias");
+
+        return string.Join(" e ", partes);
+    }
+
+    private void MarcarSelecionadoComoPago(DataGridView grade)
+    {
+        if (grade.CurrentRow?.DataBoundItem is not LancamentoGridItem item)
+        {
+            MessageBox.Show("Selecione um lançamento na lista.", "Marcar como pago", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        _repositorio.BuscarPorId(item.Id)?.MarcarComoPago();
+        AtualizarTela();
+    }
+
+    private static void FormatarLinhaDeLancamento(DataGridView grade, DataGridViewCellFormattingEventArgs e)
+    {
+        if (e.CellStyle is null || grade.Rows[e.RowIndex].DataBoundItem is not LancamentoGridItem item)
+            return;
+
+        if (item.Vencido)
+            e.CellStyle.BackColor = Color.MistyRose;
+        else if (item.VenceEmBreve)
+            e.CellStyle.BackColor = Color.LightYellow;
+
+        if (e.Value is decimal valor)
+        {
+            e.Value = valor.ToString("C");
+            e.FormattingApplied = true;
+        }
+        else if (e.Value is DateTime data)
+        {
+            e.Value = data.ToString("d");
+            e.FormattingApplied = true;
+        }
     }
 
     private void DgvOrcamento_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)

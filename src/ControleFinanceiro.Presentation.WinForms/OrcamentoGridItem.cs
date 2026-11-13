@@ -11,7 +11,11 @@ public class OrcamentoGridItem
     public decimal Planejado { get; init; }
     public decimal Realizado { get; init; }
     public decimal Desvio { get; init; }
+
+    [DisplayName("% Realizado")]
     public string PercentualRealizado { get; init; } = string.Empty;
+
+    [DisplayName("Situação")]
     public string Situacao { get; init; } = string.Empty;
 
     // Usado só para colorir a linha; Browsable(false) evita que vire coluna.

@@ -77,6 +77,24 @@ public class RepositorioMemoria
         return total;
     }
 
+    /// <summary>
+    /// Lançamentos não pagos que já venceram ou vencem nos próximos <paramref name="diasAlerta"/> dias,
+    /// do vencimento mais antigo para o mais recente.
+    /// </summary>
+    public List<LancamentoFinanceiro> ListarAlertasDeVencimento(DateTime referencia, int diasAlerta)
+    {
+        var alertas = new List<LancamentoFinanceiro>();
+
+        foreach (var lancamento in _lancamentos)
+        {
+            if (lancamento.EstaVencido(referencia) || lancamento.VencimentoProximo(referencia, diasAlerta))
+                alertas.Add(lancamento);
+        }
+
+        alertas.Sort((a, b) => a.Data.CompareTo(b.Data));
+        return alertas;
+    }
+
     /// <summary>Saldo do caixa: receitas menos despesas, via polimorfismo de <see cref="LancamentoFinanceiro.ImpactoNoSaldo"/>.</summary>
     public decimal CalcularSaldo() => _lancamentos.Sum(lancamento => lancamento.ImpactoNoSaldo);
 

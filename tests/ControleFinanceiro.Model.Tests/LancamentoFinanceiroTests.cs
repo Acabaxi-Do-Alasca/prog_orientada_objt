@@ -88,4 +88,36 @@ public class LancamentoFinanceiroTests
         Assert.Equal(150m, receita.ImpactoNoSaldo);
         Assert.Equal(-40m, despesa.ImpactoNoSaldo);
     }
+
+    [Fact]
+    public void SituacaoEm_PendenteComDataPassada_FicaVencido()
+    {
+        var hoje = new DateTime(2026, 11, 13);
+        var despesa = new Despesa(hoje.AddDays(-1), 120m, "Conta de luz", NovaCategoriaIngredientes());
+
+        Assert.True(despesa.EstaVencido(hoje));
+        Assert.Equal(StatusLancamento.Vencido, despesa.SituacaoEm(hoje));
+    }
+
+    [Fact]
+    public void SituacaoEm_VencendoHoje_AindaNaoEstaVencido()
+    {
+        var hoje = new DateTime(2026, 11, 13);
+        var despesa = new Despesa(hoje, 120m, "Conta de luz", NovaCategoriaIngredientes());
+
+        Assert.False(despesa.EstaVencido(hoje));
+        Assert.Equal(StatusLancamento.Pendente, despesa.SituacaoEm(hoje));
+    }
+
+    [Fact]
+    public void MarcarComoPago_TiraOLancamentoDeVencido()
+    {
+        var hoje = new DateTime(2026, 11, 13);
+        var despesa = new Despesa(hoje.AddDays(-10), 120m, "Conta de luz", NovaCategoriaIngredientes());
+
+        despesa.MarcarComoPago();
+
+        Assert.False(despesa.EstaVencido(hoje));
+        Assert.Equal(StatusLancamento.Pago, despesa.SituacaoEm(hoje));
+    }
 }
