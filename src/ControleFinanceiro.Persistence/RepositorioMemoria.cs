@@ -18,6 +18,9 @@ public class RepositorioMemoria
     // Dictionary: busca rápida de um lançamento pelo Id.
     private readonly Dictionary<int, LancamentoFinanceiro> _lancamentosPorId = new();
 
+    // Dictionary com chave composta (ano, mês): um orçamento por mês.
+    private readonly Dictionary<(int Ano, int Mes), Orcamento> _orcamentos = new();
+
     public IReadOnlyCollection<Categoria> Categorias => _categorias;
     public IReadOnlyList<LancamentoFinanceiro> Lancamentos => _lancamentos.AsReadOnly();
 
@@ -76,4 +79,19 @@ public class RepositorioMemoria
 
     /// <summary>Saldo do caixa: receitas menos despesas, via polimorfismo de <see cref="LancamentoFinanceiro.ImpactoNoSaldo"/>.</summary>
     public decimal CalcularSaldo() => _lancamentos.Sum(lancamento => lancamento.ImpactoNoSaldo);
+
+    /// <summary>Retorna o orçamento do mês, criando um vazio se ainda não existir.</summary>
+    public Orcamento ObterOrcamento(int mes, int ano)
+    {
+        if (!_orcamentos.TryGetValue((ano, mes), out var orcamento))
+        {
+            orcamento = new Orcamento(mes, ano);
+            _orcamentos[(ano, mes)] = orcamento;
+        }
+
+        return orcamento;
+    }
+
+    public IReadOnlyList<ComparacaoOrcamento> CompararOrcamento(int mes, int ano) =>
+        ObterOrcamento(mes, ano).CompararCom(_lancamentos);
 }

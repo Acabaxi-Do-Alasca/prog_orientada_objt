@@ -12,7 +12,7 @@ public class FormPrincipal : Form
     private readonly TextBox _txtNomeCategoria = new();
     private readonly ComboBox _cmbTipoCategoria = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly Button _btnAdicionarCategoria = new() { Text = "Adicionar Categoria" };
-    private readonly ListBox _lstCategorias = new();
+    private readonly ListBox _lstCategorias = new() { FormattingEnabled = true };
 
     // Cadastro de lançamento
     private readonly TextBox _txtDescricao = new();
@@ -28,7 +28,40 @@ public class FormPrincipal : Form
     private readonly Button _btnFiltrar = new() { Text = "Filtrar" };
     private readonly Label _lblResumo = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleRight };
     private readonly Label _lblSaldo = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
-    private readonly DataGridView _dgvLancamentos = new()
+    private readonly DataGridView _dgvLancamentos = NovaGrade();
+
+    // Orçamento
+    private readonly DateTimePicker _dtpMesOrcamento = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "MM/yyyy", ShowUpDown = true };
+    private readonly ComboBox _cmbCategoriaOrcamento = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly TextBox _txtValorPlanejado = new();
+    private readonly Button _btnDefinirPlanejado = new() { Text = "Definir valor planejado" };
+    private readonly Label _lblMensagemOrcamento = new() { ForeColor = Color.Firebrick, AutoSize = false };
+    private readonly Label _lblResumoOrcamento = new() { AutoSize = false, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
+    private readonly DataGridView _dgvOrcamento = NovaGrade();
+
+    public FormPrincipal()
+    {
+        Text = "Controle Financeiro — Célia Doces";
+        ClientSize = new Size(940, 660);
+        StartPosition = FormStartPosition.CenterScreen;
+        MinimumSize = new Size(960, 700);
+
+        var abaLancamentos = new TabPage("Lançamentos") { UseVisualStyleBackColor = true };
+        abaLancamentos.Controls.AddRange([MontarGrupoCategoria(), MontarGrupoLancamento(), MontarGrupoListagem()]);
+
+        var abaOrcamento = new TabPage("Orçamento") { UseVisualStyleBackColor = true };
+        abaOrcamento.Controls.AddRange([MontarGrupoDefinicaoOrcamento(), MontarGrupoComparacaoOrcamento()]);
+
+        var abas = new TabControl { Dock = DockStyle.Fill };
+        abas.TabPages.AddRange([abaLancamentos, abaOrcamento]);
+        Controls.Add(abas);
+
+        CarregarDadosIniciais();
+        AtualizarGrid(TipoLancamentoFiltro.Todos);
+        AtualizarOrcamento();
+    }
+
+    private static DataGridView NovaGrade() => new()
     {
         ReadOnly = true,
         AllowUserToAddRows = false,
@@ -37,21 +70,6 @@ public class FormPrincipal : Form
         MultiSelect = false,
         AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
     };
-
-    public FormPrincipal()
-    {
-        Text = "Controle Financeiro — Célia Doces";
-        ClientSize = new Size(940, 620);
-        StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(960, 660);
-
-        Controls.Add(MontarGrupoCategoria());
-        Controls.Add(MontarGrupoLancamento());
-        Controls.Add(MontarGrupoListagem());
-
-        CarregarDadosIniciais();
-        AtualizarGrid(TipoLancamentoFiltro.Todos);
-    }
 
     private GroupBox MontarGrupoCategoria()
     {
@@ -73,6 +91,11 @@ public class FormPrincipal : Form
 
         _lstCategorias.Location = new Point(12, 58);
         _lstCategorias.Size = new Size(870, 32);
+        _lstCategorias.Format += (_, e) =>
+        {
+            if (e.ListItem is Categoria categoria)
+                e.Value = $"{categoria.Nome} ({categoria.Tipo})";
+        };
 
         grupo.Controls.AddRange([lblNome, _txtNomeCategoria, lblTipo, _cmbTipoCategoria, _btnAdicionarCategoria, _lstCategorias]);
         return grupo;
@@ -95,6 +118,7 @@ public class FormPrincipal : Form
         _cmbTipoLancamento.Size = new Size(120, 23);
         _cmbTipoLancamento.Items.AddRange([TipoCategoria.Receita, TipoCategoria.Despesa]);
         _cmbTipoLancamento.SelectedIndex = 0;
+        _cmbTipoLancamento.SelectedIndexChanged += (_, _) => RecarregarCategoriasDoLancamento();
 
         var lblCategoria = new Label { Text = "Categoria:", Location = new Point(12, 63), AutoSize = true };
         _cmbCategoriaLancamento.Location = new Point(100, 60);
@@ -146,6 +170,52 @@ public class FormPrincipal : Form
         return grupo;
     }
 
+    private GroupBox MontarGrupoDefinicaoOrcamento()
+    {
+        var grupo = new GroupBox { Text = "Planejar orçamento do mês", Location = new Point(12, 12), Size = new Size(900, 90) };
+
+        var lblMes = new Label { Text = "Mês:", Location = new Point(12, 28), AutoSize = true };
+        _dtpMesOrcamento.Location = new Point(50, 25);
+        _dtpMesOrcamento.Size = new Size(100, 23);
+        _dtpMesOrcamento.ValueChanged += (_, _) => AtualizarOrcamento();
+
+        var lblCategoria = new Label { Text = "Categoria:", Location = new Point(170, 28), AutoSize = true };
+        _cmbCategoriaOrcamento.Location = new Point(240, 25);
+        _cmbCategoriaOrcamento.Size = new Size(220, 23);
+
+        var lblValor = new Label { Text = "Planejado (R$):", Location = new Point(475, 28), AutoSize = true };
+        _txtValorPlanejado.Location = new Point(575, 25);
+        _txtValorPlanejado.Size = new Size(100, 23);
+
+        _btnDefinirPlanejado.Location = new Point(690, 23);
+        _btnDefinirPlanejado.Size = new Size(190, 26);
+        _btnDefinirPlanejado.Click += BtnDefinirPlanejado_Click;
+
+        _lblMensagemOrcamento.Location = new Point(12, 58);
+        _lblMensagemOrcamento.Size = new Size(870, 20);
+
+        grupo.Controls.AddRange([
+            lblMes, _dtpMesOrcamento, lblCategoria, _cmbCategoriaOrcamento,
+            lblValor, _txtValorPlanejado, _btnDefinirPlanejado, _lblMensagemOrcamento
+        ]);
+        return grupo;
+    }
+
+    private GroupBox MontarGrupoComparacaoOrcamento()
+    {
+        var grupo = new GroupBox { Text = "Planejado x Realizado", Location = new Point(12, 110), Size = new Size(900, 480) };
+
+        _lblResumoOrcamento.Location = new Point(12, 25);
+        _lblResumoOrcamento.Size = new Size(874, 22);
+
+        _dgvOrcamento.Location = new Point(12, 52);
+        _dgvOrcamento.Size = new Size(874, 415);
+        _dgvOrcamento.CellFormatting += DgvOrcamento_CellFormatting;
+
+        grupo.Controls.AddRange([_lblResumoOrcamento, _dgvOrcamento]);
+        return grupo;
+    }
+
     private void CarregarDadosIniciais()
     {
         // Categorias de exemplo do negócio da cliente (Célia Doces), para facilitar a demonstração.
@@ -156,11 +226,32 @@ public class FormPrincipal : Form
     private void AdicionarCategoriaNaTela(Categoria categoria)
     {
         _lstCategorias.Items.Add(categoria);
-        _cmbCategoriaLancamento.Items.Add(categoria);
-
-        if (_cmbCategoriaLancamento.SelectedIndex < 0)
-            _cmbCategoriaLancamento.SelectedIndex = 0;
+        RecarregarCategoriasDoLancamento();
+        PreencherComboDeCategorias(_cmbCategoriaOrcamento, _repositorio.Categorias);
     }
+
+    private void RecarregarCategoriasDoLancamento()
+    {
+        var tipo = (TipoCategoria)_cmbTipoLancamento.SelectedItem!;
+        PreencherComboDeCategorias(_cmbCategoriaLancamento, _repositorio.Categorias.Where(categoria => categoria.Tipo == tipo));
+    }
+
+    private static void PreencherComboDeCategorias(ComboBox combo, IEnumerable<Categoria> categorias)
+    {
+        var selecionada = combo.SelectedItem;
+
+        combo.Items.Clear();
+        foreach (var categoria in categorias.OrderBy(categoria => categoria.Nome))
+            combo.Items.Add(categoria);
+
+        if (selecionada is not null && combo.Items.Contains(selecionada))
+            combo.SelectedItem = selecionada;
+        else if (combo.Items.Count > 0)
+            combo.SelectedIndex = 0;
+    }
+
+    private static bool TentarLerValor(string texto, out decimal valor) =>
+        decimal.TryParse(texto.Trim().Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out valor);
 
     private void BtnAdicionarCategoria_Click(object? sender, EventArgs e)
     {
@@ -184,23 +275,21 @@ public class FormPrincipal : Form
     private void BtnAdicionarLancamento_Click(object? sender, EventArgs e)
     {
         _lblMensagem.Text = string.Empty;
+        var tipo = (TipoCategoria)_cmbTipoLancamento.SelectedItem!;
 
         if (_cmbCategoriaLancamento.SelectedItem is not Categoria categoria)
         {
-            _lblMensagem.Text = "Cadastre e selecione uma categoria antes de adicionar o lançamento.";
+            _lblMensagem.Text = $"Cadastre uma categoria do tipo {tipo} antes de adicionar o lançamento.";
             return;
         }
 
-        var descricao = _txtDescricao.Text.Trim();
-        var valorTexto = _txtValor.Text.Trim().Replace(',', '.');
-
-        if (!decimal.TryParse(valorTexto, NumberStyles.Number, CultureInfo.InvariantCulture, out var valor))
+        if (!TentarLerValor(_txtValor.Text, out var valor))
         {
             _lblMensagem.Text = "Informe um valor numérico válido.";
             return;
         }
 
-        var tipo = (TipoCategoria)_cmbTipoLancamento.SelectedItem!;
+        var descricao = _txtDescricao.Text.Trim();
 
         try
         {
@@ -217,8 +306,9 @@ public class FormPrincipal : Form
             _txtDescricao.Focus();
 
             AtualizarGrid((TipoLancamentoFiltro)_cmbFiltro.SelectedItem!);
+            AtualizarOrcamento();
         }
-        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
+        catch (ArgumentException ex)
         {
             _lblMensagem.Text = ex.Message;
         }
@@ -226,6 +316,35 @@ public class FormPrincipal : Form
 
     private void BtnFiltrar_Click(object? sender, EventArgs e) =>
         AtualizarGrid((TipoLancamentoFiltro)_cmbFiltro.SelectedItem!);
+
+    private void BtnDefinirPlanejado_Click(object? sender, EventArgs e)
+    {
+        _lblMensagemOrcamento.Text = string.Empty;
+
+        if (_cmbCategoriaOrcamento.SelectedItem is not Categoria categoria)
+        {
+            _lblMensagemOrcamento.Text = "Cadastre uma categoria antes de planejar o orçamento.";
+            return;
+        }
+
+        if (!TentarLerValor(_txtValorPlanejado.Text, out var valorPlanejado))
+        {
+            _lblMensagemOrcamento.Text = "Informe um valor planejado numérico válido.";
+            return;
+        }
+
+        try
+        {
+            var mes = _dtpMesOrcamento.Value;
+            _repositorio.ObterOrcamento(mes.Month, mes.Year).AdicionarItem(categoria, valorPlanejado);
+            _txtValorPlanejado.Clear();
+            AtualizarOrcamento();
+        }
+        catch (ArgumentException ex)
+        {
+            _lblMensagemOrcamento.Text = ex.Message;
+        }
+    }
 
     private void AtualizarGrid(TipoLancamentoFiltro filtro)
     {
@@ -253,5 +372,41 @@ public class FormPrincipal : Form
         _lblResumo.Text = $"Receitas: {receitas:C}    Despesas: {despesas:C}";
         _lblSaldo.Text = $"Saldo: {saldo:C}";
         _lblSaldo.ForeColor = saldo < 0 ? Color.Firebrick : Color.DarkGreen;
+    }
+
+    private void AtualizarOrcamento()
+    {
+        var mes = _dtpMesOrcamento.Value;
+        var itens = _repositorio.CompararOrcamento(mes.Month, mes.Year)
+            .OrderBy(comparacao => comparacao.Categoria.Tipo)
+            .ThenBy(comparacao => comparacao.Categoria.Nome)
+            .Select(OrcamentoGridItem.DeComparacao)
+            .ToList();
+
+        _dgvOrcamento.DataSource = null;
+        _dgvOrcamento.DataSource = itens;
+
+        var foraDoPlanejado = itens.Count(item => item.ForaDoPlanejado);
+        _lblResumoOrcamento.Text = itens.Count == 0
+            ? "Nenhum valor planejado nem lançamento neste mês."
+            : foraDoPlanejado == 0
+                ? "Todas as categorias estão dentro do planejado."
+                : $"{foraDoPlanejado} categoria(s) fora do planejado.";
+        _lblResumoOrcamento.ForeColor = foraDoPlanejado == 0 ? Color.DarkGreen : Color.Firebrick;
+    }
+
+    private void DgvOrcamento_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+    {
+        if (e.CellStyle is null || _dgvOrcamento.Rows[e.RowIndex].DataBoundItem is not OrcamentoGridItem item)
+            return;
+
+        if (item.ForaDoPlanejado)
+            e.CellStyle.BackColor = Color.MistyRose;
+
+        if (e.Value is decimal valor)
+        {
+            e.Value = valor.ToString("C");
+            e.FormattingApplied = true;
+        }
     }
 }

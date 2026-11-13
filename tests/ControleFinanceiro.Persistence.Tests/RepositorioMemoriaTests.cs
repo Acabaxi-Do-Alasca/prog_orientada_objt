@@ -115,4 +115,27 @@ public class RepositorioMemoriaTests
     {
         Assert.Equal(0m, new RepositorioMemoria().CalcularSaldo());
     }
+
+    [Fact]
+    public void ObterOrcamento_MesmoMes_RetornaOMesmoOrcamento()
+    {
+        var repositorio = new RepositorioMemoria();
+
+        Assert.Same(repositorio.ObterOrcamento(9, 2026), repositorio.ObterOrcamento(9, 2026));
+        Assert.NotSame(repositorio.ObterOrcamento(9, 2026), repositorio.ObterOrcamento(10, 2026));
+    }
+
+    [Fact]
+    public void CompararOrcamento_UsaOsLancamentosCadastrados()
+    {
+        var repositorio = new RepositorioMemoria();
+        var ingredientes = repositorio.AdicionarCategoria("Ingredientes", TipoCategoria.Despesa);
+        repositorio.ObterOrcamento(9, 2026).AdicionarItem(ingredientes, 500m);
+        repositorio.AdicionarLancamento(new Despesa(new DateTime(2026, 9, 10), 620m, "Chocolate", ingredientes));
+
+        var comparacao = Assert.Single(repositorio.CompararOrcamento(9, 2026));
+
+        Assert.Equal(620m, comparacao.Realizado);
+        Assert.True(comparacao.ForaDoPlanejado);
+    }
 }
