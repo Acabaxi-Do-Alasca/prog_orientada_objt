@@ -5,8 +5,8 @@ using ControleFinanceiro.Model;
 namespace ControleFinanceiro.Persistence;
 
 /// <summary>
-/// Grava os dados em três arquivos texto dentro de <see cref="Pasta"/>: categorias, lançamentos e
-/// orçamentos, um registro por linha. Herda o armazenamento em coleções de <see cref="RepositorioMemoria"/>:
+/// Grava os dados em arquivos texto dentro de <see cref="Pasta"/>: categorias, lançamentos, orçamentos e
+/// configurações, um registro por linha. Herda o armazenamento em coleções de <see cref="RepositorioMemoria"/>:
 /// lê os arquivos para a memória ao ser criado e sobrescreve <see cref="Salvar"/> para gravá-los de volta.
 /// </summary>
 public class RepositorioArquivoTexto : RepositorioMemoria
@@ -14,10 +14,13 @@ public class RepositorioArquivoTexto : RepositorioMemoria
     private const string ArquivoCategorias = "categorias.txt";
     private const string ArquivoLancamentos = "lancamentos.txt";
     private const string ArquivoOrcamentos = "orcamentos.txt";
+    private const string ArquivoConfiguracoes = "configuracoes.txt";
 
     private const string CabecalhoCategorias = "Id;Nome;Tipo";
     private const string CabecalhoLancamentos = "Id;Tipo;Vencimento;Valor;Descricao;Status;CategoriaId;Origem;Recorrente";
     private const string CabecalhoOrcamentos = "Ano;Mes;CategoriaId;ValorPlanejado";
+    private const string CabecalhoConfiguracoes = "Chave;Valor";
+    private const string ChaveDiasAlerta = "DiasAlerta";
 
     private const string FormatoData = "yyyy-MM-dd";
     private static readonly CultureInfo Cultura = CultureInfo.InvariantCulture;
@@ -44,6 +47,7 @@ public class RepositorioArquivoTexto : RepositorioMemoria
             Gravar(ArquivoOrcamentos, CabecalhoOrcamentos, Orcamentos
                 .OrderBy(o => o.Ano).ThenBy(o => o.Mes)
                 .SelectMany(o => o.Itens.Select(item => LinhaDoItemDeOrcamento(o, item))));
+            Gravar(ArquivoConfiguracoes, CabecalhoConfiguracoes, [LinhaDeTexto.Juntar(ChaveDiasAlerta, DiasAlerta.ToString(Cultura))]);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -123,6 +127,15 @@ public class RepositorioArquivoTexto : RepositorioMemoria
             var ano = LerInteiro(campos[0]);
             var mes = LerInteiro(campos[1]);
             ObterOrcamento(mes, ano).AdicionarItem(BuscarCategoria(categoriasPorId, campos[2]), LerDecimal(campos[3]));
+        });
+
+        LerRegistros(ArquivoConfiguracoes, 2, campos =>
+        {
+            if (campos[0] != ChaveDiasAlerta)
+                throw new FormatException($"configuração \"{campos[0]}\" desconhecida");
+
+            var dias = LerInteiro(campos[1]);
+            DiasAlerta = dias >= 0 ? dias : throw new FormatException("o número de dias não pode ser negativo");
         });
     }
 

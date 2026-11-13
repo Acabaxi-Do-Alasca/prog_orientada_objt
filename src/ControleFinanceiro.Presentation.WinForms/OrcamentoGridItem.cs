@@ -18,12 +18,16 @@ public class OrcamentoGridItem
     [DisplayName("Situação")]
     public string Situacao { get; init; } = string.Empty;
 
-    // Usado só para colorir a linha; Browsable(false) evita que vire coluna.
+    // Usados só pela tela (cor da linha e "Remover valor planejado"); Browsable(false) evita que virem colunas.
     [Browsable(false)]
     public bool ForaDoPlanejado { get; init; }
 
+    [Browsable(false)]
+    public int CategoriaId { get; init; }
+
     public static OrcamentoGridItem DeComparacao(ComparacaoOrcamento comparacao) => new()
     {
+        CategoriaId = comparacao.Categoria.Id,
         Categoria = comparacao.Categoria.Nome,
         Tipo = comparacao.Categoria.Tipo.ToString(),
         Planejado = comparacao.Planejado,

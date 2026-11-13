@@ -117,27 +117,27 @@ public class ServicoFinanceiroTests
     }
 
     [Fact]
-    public void CalcularSaldo_SubtraiDespesasDasReceitas()
+    public void CalcularSaldoPrevisto_SubtraiDespesasDasReceitas()
     {
         _servico.RegistrarReceita(DateTime.Today, 150m, "Bolo", _vendas, "Pix", jaRecebida: false);
         _servico.RegistrarDespesa(DateTime.Today, 40m, "Farinha", _ingredientes, jaPaga: false);
 
-        Assert.Equal(110m, _servico.CalcularSaldo());
+        Assert.Equal(110m, _servico.CalcularSaldoPrevisto());
     }
 
     [Fact]
-    public void CalcularSaldo_FicaNegativo_QuandoDespesasSuperamReceitas()
+    public void CalcularSaldoPrevisto_FicaNegativo_QuandoDespesasSuperamReceitas()
     {
         _servico.RegistrarReceita(DateTime.Today, 300m, "Encomendas", _vendas, "Pix", jaRecebida: false);
         _servico.RegistrarDespesa(DateTime.Today, 800m, "Aluguel", _ingredientes, jaPaga: false);
 
-        Assert.Equal(-500m, _servico.CalcularSaldo());
+        Assert.Equal(-500m, _servico.CalcularSaldoPrevisto());
     }
 
     [Fact]
-    public void CalcularSaldo_EZero_SemLancamentos()
+    public void CalcularSaldoPrevisto_EZero_SemLancamentos()
     {
-        Assert.Equal(0m, _servico.CalcularSaldo());
+        Assert.Equal(0m, _servico.CalcularSaldoPrevisto());
     }
 
     // ---------- orçamento ----------
@@ -199,7 +199,7 @@ public class ServicoFinanceiroTests
             reaberto.CriarCategoriasIniciaisSeNecessario();
 
             Assert.Equal(2, reaberto.Categorias.Count);
-            Assert.Equal(-120m, reaberto.CalcularSaldo());
+            Assert.Equal(-120m, reaberto.CalcularSaldoPrevisto());
             Assert.Empty(reaberto.ListarAlertasDeVencimento(new DateTime(2026, 11, 13), 5));
             Assert.Equal(200m, Assert.Single(reaberto.CompararOrcamento(11, 2026)).Planejado);
         }

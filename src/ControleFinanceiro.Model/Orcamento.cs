@@ -45,6 +45,10 @@ public class Orcamento
         return existente;
     }
 
+    /// <summary>Tira a categoria do orçamento. Retorna falso se ela não estava planejada.</summary>
+    public bool RemoverItem(Categoria categoria) =>
+        _itens.RemoveAll(item => item.Categoria.Equals(categoria)) > 0;
+
     public decimal CalcularTotalPlanejado() => _itens.Sum(item => item.ValorPlanejado);
 
     /// <summary>

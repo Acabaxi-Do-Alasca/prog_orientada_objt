@@ -23,7 +23,7 @@ public abstract class LancamentoFinanceiro : IEquatable<LancamentoFinanceiro>
     public StatusLancamento Status { get; set; }
 
     // Agregação: a Categoria existe independentemente do lançamento.
-    public Categoria Categoria { get; }
+    public Categoria Categoria { get; private set; }
 
     protected LancamentoFinanceiro(DateTime data, decimal valor, string descricao, Categoria categoria)
         : this(Ids.Proximo(), data, valor, descricao, categoria)
@@ -33,18 +33,26 @@ public abstract class LancamentoFinanceiro : IEquatable<LancamentoFinanceiro>
     /// <summary>Recria um lançamento já existente (lido do arquivo) mantendo o Id original.</summary>
     private protected LancamentoFinanceiro(int id, DateTime data, decimal valor, string descricao, Categoria categoria)
     {
+        Ids.Registrar(id);
+        Id = id;
+        Descricao = string.Empty;
+        Categoria = null!;
+        Atualizar(data, valor, descricao, categoria);
+        Status = StatusLancamento.Pendente;
+    }
+
+    /// <summary>Altera os dados do lançamento com as mesmas validações do cadastro. O Id não muda.</summary>
+    public void Atualizar(DateTime data, decimal valor, string descricao, Categoria categoria)
+    {
         if (valor <= 0)
             throw new ArgumentOutOfRangeException(nameof(valor), "O valor deve ser maior que zero.");
         if (string.IsNullOrWhiteSpace(descricao))
             throw new ArgumentException("Descrição é obrigatória.", nameof(descricao));
 
-        Ids.Registrar(id);
-        Id = id;
+        Categoria = categoria ?? throw new ArgumentNullException(nameof(categoria));
         Data = data;
         Valor = valor;
         Descricao = descricao;
-        Categoria = categoria ?? throw new ArgumentNullException(nameof(categoria));
-        Status = StatusLancamento.Pendente;
     }
 
     /// <summary>Quanto este lançamento altera o saldo do caixa: positivo para receita, negativo para despesa.</summary>
@@ -60,6 +68,8 @@ public abstract class LancamentoFinanceiro : IEquatable<LancamentoFinanceiro>
     }
 
     public void MarcarComoPago() => Status = StatusLancamento.Pago;
+
+    public void MarcarComoPendente() => Status = StatusLancamento.Pendente;
 
     public bool EstaVencido(DateTime referencia) =>
         Status != StatusLancamento.Pago && Data.Date < referencia.Date;

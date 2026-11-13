@@ -22,6 +22,7 @@ public class RepositorioMemoria : IRepositorioFinanceiro
 
     public IReadOnlyCollection<Categoria> Categorias => _categorias;
     public IReadOnlyList<LancamentoFinanceiro> Lancamentos => _lancamentos.AsReadOnly();
+    public int DiasAlerta { get; set; } = 5;
 
     protected IReadOnlyCollection<Orcamento> Orcamentos => _orcamentos.Values;
 
@@ -29,6 +30,20 @@ public class RepositorioMemoria : IRepositorioFinanceiro
     {
         ArgumentNullException.ThrowIfNull(categoria);
         _categorias.Add(categoria);
+    }
+
+    public void RemoverCategoria(Categoria categoria)
+    {
+        ArgumentNullException.ThrowIfNull(categoria);
+
+        // Um lançamento sem categoria não poderia ser gravado nem relido do arquivo.
+        if (_lancamentos.Any(lancamento => lancamento.Categoria.Equals(categoria)))
+            throw new ArgumentException($"A categoria \"{categoria.Nome}\" ainda tem lançamentos.", nameof(categoria));
+
+        foreach (var orcamento in _orcamentos.Values)
+            orcamento.RemoverItem(categoria);
+
+        _categorias.Remove(categoria);
     }
 
     public void AdicionarLancamento(LancamentoFinanceiro lancamento)
@@ -41,6 +56,14 @@ public class RepositorioMemoria : IRepositorioFinanceiro
             throw new ArgumentException($"Já existe um lançamento com o Id {lancamento.Id}.", nameof(lancamento));
 
         _lancamentos.Add(lancamento);
+    }
+
+    public void RemoverLancamento(LancamentoFinanceiro lancamento)
+    {
+        ArgumentNullException.ThrowIfNull(lancamento);
+
+        _lancamentosPorId.Remove(lancamento.Id);
+        _lancamentos.Remove(lancamento);
     }
 
     public LancamentoFinanceiro? BuscarLancamentoPorId(int id) =>

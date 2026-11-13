@@ -120,4 +120,41 @@ public class LancamentoFinanceiroTests
         Assert.False(despesa.EstaVencido(hoje));
         Assert.Equal(StatusLancamento.Pago, despesa.SituacaoEm(hoje));
     }
+
+    [Fact]
+    public void Atualizar_MudaOsDadosMasNaoOId()
+    {
+        var despesa = new Despesa(new DateTime(2026, 11, 10), 120m, "Luz", NovaCategoriaIngredientes());
+        var id = despesa.Id;
+        var outra = new Categoria("Contas fixas", TipoCategoria.Despesa);
+
+        despesa.Atualizar(new DateTime(2026, 11, 20), 135m, "Conta de luz", outra);
+
+        Assert.Equal(id, despesa.Id);
+        Assert.Equal(135m, despesa.Valor);
+        Assert.Equal("Conta de luz", despesa.Descricao);
+        Assert.Same(outra, despesa.Categoria);
+    }
+
+    [Fact]
+    public void Atualizar_ComDescricaoVazia_LancaExcecaoSemAlterarNada()
+    {
+        var despesa = new Despesa(DateTime.Today, 120m, "Luz", NovaCategoriaIngredientes());
+
+        Assert.Throws<ArgumentException>(() => despesa.Atualizar(DateTime.Today, 200m, " ", NovaCategoriaIngredientes()));
+        Assert.Equal(120m, despesa.Valor);
+        Assert.Equal("Luz", despesa.Descricao);
+    }
+
+    [Fact]
+    public void MarcarComoPendente_DesfazOPagamento()
+    {
+        var hoje = new DateTime(2026, 11, 13);
+        var despesa = new Despesa(hoje.AddDays(-1), 120m, "Luz", NovaCategoriaIngredientes());
+        despesa.MarcarComoPago();
+
+        despesa.MarcarComoPendente();
+
+        Assert.Equal(StatusLancamento.Vencido, despesa.SituacaoEm(hoje));
+    }
 }

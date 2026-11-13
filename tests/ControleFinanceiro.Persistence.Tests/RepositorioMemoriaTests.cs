@@ -67,4 +67,47 @@ public class RepositorioMemoriaTests
         Assert.Same(repositorio.ObterOrcamento(9, 2026), repositorio.ObterOrcamento(9, 2026));
         Assert.NotSame(repositorio.ObterOrcamento(9, 2026), repositorio.ObterOrcamento(10, 2026));
     }
+
+    [Fact]
+    public void RemoverLancamento_TiraDaListaEDaBuscaPorId()
+    {
+        var repositorio = new RepositorioMemoria();
+        var ingredientes = new Categoria("Ingredientes", TipoCategoria.Despesa);
+        repositorio.AdicionarCategoria(ingredientes);
+        var despesa = new Despesa(DateTime.Today, 40m, "Farinha", ingredientes);
+        repositorio.AdicionarLancamento(despesa);
+
+        repositorio.RemoverLancamento(despesa);
+
+        Assert.Empty(repositorio.Lancamentos);
+        Assert.Null(repositorio.BuscarLancamentoPorId(despesa.Id));
+    }
+
+    [Fact]
+    public void RemoverCategoria_ComLancamentos_LancaExcecao()
+    {
+        var repositorio = new RepositorioMemoria();
+        var ingredientes = new Categoria("Ingredientes", TipoCategoria.Despesa);
+        repositorio.AdicionarCategoria(ingredientes);
+        repositorio.AdicionarLancamento(new Despesa(DateTime.Today, 40m, "Farinha", ingredientes));
+
+        Assert.Throws<ArgumentException>(() => repositorio.RemoverCategoria(ingredientes));
+        Assert.Contains(ingredientes, repositorio.Categorias);
+    }
+
+    [Fact]
+    public void RemoverCategoria_TiraOsValoresPlanejadosDelaDeTodosOsMeses()
+    {
+        var repositorio = new RepositorioMemoria();
+        var ingredientes = new Categoria("Ingredientes", TipoCategoria.Despesa);
+        repositorio.AdicionarCategoria(ingredientes);
+        repositorio.ObterOrcamento(10, 2026).AdicionarItem(ingredientes, 100m);
+        repositorio.ObterOrcamento(11, 2026).AdicionarItem(ingredientes, 200m);
+
+        repositorio.RemoverCategoria(ingredientes);
+
+        Assert.Empty(repositorio.Categorias);
+        Assert.Empty(repositorio.ObterOrcamento(10, 2026).Itens);
+        Assert.Empty(repositorio.ObterOrcamento(11, 2026).Itens);
+    }
 }

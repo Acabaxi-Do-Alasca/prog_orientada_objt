@@ -152,7 +152,54 @@ public sealed class RepositorioArquivoTextoTests : IDisposable
         repositorio.Salvar();
 
         Assert.Equal(
-            ["categorias.txt", "lancamentos.txt", "orcamentos.txt"],
+            ["categorias.txt", "configuracoes.txt", "lancamentos.txt", "orcamentos.txt"],
             Directory.GetFiles(_pasta).Select(Path.GetFileName).Order());
+    }
+
+    [Fact]
+    public void DiasAlerta_EGravadoERelido()
+    {
+        var original = new RepositorioArquivoTexto(_pasta) { DiasAlerta = 9 };
+        original.Salvar();
+
+        Assert.Equal(9, new RepositorioArquivoTexto(_pasta).DiasAlerta);
+    }
+
+    [Fact]
+    public void SemArquivoDeConfiguracoes_DiasAlertaFicaEmCinco()
+    {
+        Assert.Equal(5, new RepositorioArquivoTexto(_pasta).DiasAlerta);
+    }
+
+    [Fact]
+    public void ConfiguracaoDesconhecida_LancaExcecaoComALinha()
+    {
+        Directory.CreateDirectory(_pasta);
+        File.WriteAllLines(Path.Combine(_pasta, "configuracoes.txt"), ["Chave;Valor", "Tema;Escuro"]);
+
+        var erro = Assert.Throws<ArquivoDeDadosException>(() => new RepositorioArquivoTexto(_pasta));
+
+        Assert.Contains("configuracoes.txt, linha 2", erro.Message);
+    }
+
+    [Fact]
+    public void ExclusaoDeLancamentoECategoria_SobreviveAReabrir()
+    {
+        var original = new RepositorioArquivoTexto(_pasta);
+        var contas = new Categoria("Contas", TipoCategoria.Despesa);
+        var avulsa = new Categoria("Avulsa", TipoCategoria.Despesa);
+        original.AdicionarCategoria(contas);
+        original.AdicionarCategoria(avulsa);
+        var luz = new Despesa(DateTime.Today, 120m, "Luz", contas);
+        original.AdicionarLancamento(luz);
+        original.Salvar();
+
+        original.RemoverLancamento(luz);
+        original.RemoverCategoria(avulsa);
+        original.Salvar();
+
+        var recarregado = new RepositorioArquivoTexto(_pasta);
+        Assert.Empty(recarregado.Lancamentos);
+        Assert.Equal("Contas", Assert.Single(recarregado.Categorias).Nome);
     }
 }

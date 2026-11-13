@@ -48,6 +48,20 @@ public class OrcamentoTests
     }
 
     [Fact]
+    public void RemoverItem_TiraACategoriaDoOrcamento()
+    {
+        var orcamento = new Orcamento(mes: 11, ano: 2026);
+        var ingredientes = new Categoria("Ingredientes", TipoCategoria.Despesa);
+        var aluguel = new Categoria("Aluguel", TipoCategoria.Despesa);
+        orcamento.AdicionarItem(ingredientes, 200m);
+        orcamento.AdicionarItem(aluguel, 800m);
+
+        Assert.True(orcamento.RemoverItem(ingredientes));
+        Assert.False(orcamento.RemoverItem(ingredientes));
+        Assert.Equal(800m, orcamento.CalcularTotalPlanejado());
+    }
+
+    [Fact]
     public void AdicionarItem_MesmaCategoria_AtualizaValorEmVezDeDuplicar()
     {
         var orcamento = new Orcamento(mes: 9, ano: 2026);

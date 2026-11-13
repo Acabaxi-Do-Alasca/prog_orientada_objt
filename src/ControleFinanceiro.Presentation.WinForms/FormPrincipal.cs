@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Globalization;
 using ControleFinanceiro.Model;
 using ControleFinanceiro.Persistence;
 using ControleFinanceiro.Service;
@@ -8,14 +7,15 @@ namespace ControleFinanceiro.Presentation.WinForms;
 
 public class FormPrincipal : Form
 {
-    private const int DiasAlerta = 5;
-
     private readonly ServicoFinanceiro _servico;
+    private readonly ToolTip _dicas = new();
 
     // Cadastro de categoria
     private readonly TextBox _txtNomeCategoria = new();
     private readonly ComboBox _cmbTipoCategoria = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly Button _btnAdicionarCategoria = new() { Text = "Adicionar Categoria" };
+    private readonly Button _btnEditarCategoria = new() { Text = "Editar categoria" };
+    private readonly Button _btnExcluirCategoria = new() { Text = "Excluir categoria" };
     private readonly ListBox _lstCategorias = new() { FormattingEnabled = true, MultiColumn = true };
 
     // Cadastro de lançamento
@@ -32,8 +32,11 @@ public class FormPrincipal : Form
     // Listagem
     private readonly ComboBox _cmbFiltro = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly Button _btnFiltrar = new() { Text = "Filtrar" };
-    private readonly Button _btnMarcarPago = new() { Text = "Marcar selecionado como pago" };
-    private readonly Label _lblResumo = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleRight };
+    private readonly Button _btnMarcarPago = new() { Text = "Marcar como pago" };
+    private readonly Button _btnEditarLancamento = new() { Text = "Editar" };
+    private readonly Button _btnExcluirLancamento = new() { Text = "Excluir" };
+    private readonly Label _lblResumo = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleLeft };
+    private readonly Label _lblSaldoRealizado = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
     private readonly Label _lblSaldo = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
     private readonly DataGridView _dgvLancamentos = NovaGradeDeLancamentos();
 
@@ -42,6 +45,7 @@ public class FormPrincipal : Form
     private readonly ComboBox _cmbCategoriaOrcamento = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox _txtValorPlanejado = new();
     private readonly Button _btnDefinirPlanejado = new() { Text = "Definir valor planejado" };
+    private readonly Button _btnRemoverPlanejado = new() { Text = "Remover valor planejado" };
     private readonly Label _lblMensagemOrcamento = new() { ForeColor = Color.Firebrick, AutoSize = false };
     private readonly Label _lblResumoOrcamento = new() { AutoSize = false, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
     private readonly DataGridView _dgvOrcamento = NovaGrade(("Categoria", 160), ("Tipo", 70), ("PercentualRealizado", 80), ("Situacao", 160));
@@ -57,9 +61,11 @@ public class FormPrincipal : Form
         ForeColor = Color.Firebrick,
         Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
     };
+    private readonly GroupBox _grpVencimentos = new() { Location = new Point(12, 12), Size = new Size(900, 578) };
     private readonly Label _lblResumoAlertas = new() { AutoSize = false, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
     private readonly DataGridView _dgvAlertas = NovaGradeDeLancamentos();
     private readonly Button _btnMarcarPagoAlerta = new() { Text = "Marcar selecionado como pago" };
+    private readonly NumericUpDown _nudDiasAlerta = new() { Minimum = ServicoFinanceiro.DiasAlertaMinimo, Maximum = ServicoFinanceiro.DiasAlertaMaximo };
 
     public FormPrincipal(ServicoFinanceiro servico, string pastaDosDados)
     {
@@ -144,6 +150,8 @@ public class FormPrincipal : Form
     private static DataGridView NovaGradeDeLancamentos() =>
         NovaGrade(("Id", 40), ("Tipo", 70), ("Descricao", 170), ("Categoria", 150), ("Status", 80));
 
+    // ---------- montagem da tela ----------
+
     private GroupBox MontarGrupoCategoria()
     {
         var grupo = new GroupBox { Text = "Categoria", Location = new Point(12, 12), Size = new Size(900, 100) };
@@ -162,6 +170,14 @@ public class FormPrincipal : Form
         _btnAdicionarCategoria.Size = new Size(160, 26);
         _btnAdicionarCategoria.Click += BtnAdicionarCategoria_Click;
 
+        _btnEditarCategoria.Location = new Point(640, 23);
+        _btnEditarCategoria.Size = new Size(115, 26);
+        _btnEditarCategoria.Click += (_, _) => EditarCategoriaSelecionada();
+
+        _btnExcluirCategoria.Location = new Point(765, 23);
+        _btnExcluirCategoria.Size = new Size(115, 26);
+        _btnExcluirCategoria.Click += (_, _) => ExcluirCategoriaSelecionada();
+
         _lstCategorias.Location = new Point(12, 58);
         _lstCategorias.Size = new Size(870, 32);
         // ColumnWidth não acompanha o escalonamento automático por DPI, então é convertido à mão.
@@ -171,8 +187,11 @@ public class FormPrincipal : Form
             if (e.ListItem is Categoria categoria)
                 e.Value = $"{categoria.Nome} ({categoria.Tipo})";
         };
+        _lstCategorias.DoubleClick += (_, _) => EditarCategoriaSelecionada();
+        _dicas.SetToolTip(_lstCategorias, "Selecione uma categoria para editar ou excluir (duplo clique edita).");
 
-        grupo.Controls.AddRange([lblNome, _txtNomeCategoria, lblTipo, _cmbTipoCategoria, _btnAdicionarCategoria, _lstCategorias]);
+        grupo.Controls.AddRange([lblNome, _txtNomeCategoria, lblTipo, _cmbTipoCategoria, _btnAdicionarCategoria,
+            _btnEditarCategoria, _btnExcluirCategoria, _lstCategorias]);
         return grupo;
     }
 
@@ -235,25 +254,43 @@ public class FormPrincipal : Form
         _cmbFiltro.SelectedIndex = 0;
 
         _btnFiltrar.Location = new Point(250, 21);
-        _btnFiltrar.Size = new Size(100, 25);
-        _btnFiltrar.Click += BtnFiltrar_Click;
+        _btnFiltrar.Size = new Size(90, 25);
+        _btnFiltrar.Click += (_, _) => AtualizarGrid();
 
-        _btnMarcarPago.Location = new Point(360, 21);
-        _btnMarcarPago.Size = new Size(210, 25);
+        _btnMarcarPago.Location = new Point(350, 21);
+        _btnMarcarPago.Size = new Size(140, 25);
         _btnMarcarPago.Click += (_, _) => MarcarSelecionadoComoPago(_dgvLancamentos);
 
-        _lblResumo.Location = new Point(12, 52);
-        _lblResumo.Size = new Size(600, 22);
-        _lblResumo.TextAlign = ContentAlignment.MiddleLeft;
+        _btnEditarLancamento.Location = new Point(500, 21);
+        _btnEditarLancamento.Size = new Size(100, 25);
+        _btnEditarLancamento.Click += (_, _) => EditarLancamentoSelecionado();
 
-        _lblSaldo.Location = new Point(706, 52);
-        _lblSaldo.Size = new Size(180, 22);
+        _btnExcluirLancamento.Location = new Point(610, 21);
+        _btnExcluirLancamento.Size = new Size(100, 25);
+        _btnExcluirLancamento.Click += (_, _) => ExcluirLancamentoSelecionado();
+
+        _lblResumo.Location = new Point(12, 52);
+        _lblResumo.Size = new Size(330, 22);
+
+        _lblSaldoRealizado.Location = new Point(350, 52);
+        _lblSaldoRealizado.Size = new Size(270, 22);
+        _dicas.SetToolTip(_lblSaldoRealizado, "Só o que já foi pago ou recebido: o dinheiro que de fato passou pelo caixa.");
+
+        _lblSaldo.Location = new Point(626, 52);
+        _lblSaldo.Size = new Size(260, 22);
+        _dicas.SetToolTip(_lblSaldo, "Todos os lançamentos, pagos ou pendentes.");
 
         _dgvLancamentos.Location = new Point(12, 80);
         _dgvLancamentos.Size = new Size(874, 205);
         _dgvLancamentos.CellFormatting += (_, e) => FormatarLinhaDeLancamento(_dgvLancamentos, e);
+        _dgvLancamentos.CellDoubleClick += (_, e) =>
+        {
+            if (e.RowIndex >= 0)
+                EditarLancamentoSelecionado();
+        };
 
-        grupo.Controls.AddRange([lblFiltro, _cmbFiltro, _btnFiltrar, _btnMarcarPago, _lblResumo, _lblSaldo, _dgvLancamentos]);
+        grupo.Controls.AddRange([lblFiltro, _cmbFiltro, _btnFiltrar, _btnMarcarPago, _btnEditarLancamento, _btnExcluirLancamento,
+            _lblResumo, _lblSaldoRealizado, _lblSaldo, _dgvLancamentos]);
         return grupo;
     }
 
@@ -278,12 +315,17 @@ public class FormPrincipal : Form
         _btnDefinirPlanejado.Size = new Size(190, 26);
         _btnDefinirPlanejado.Click += BtnDefinirPlanejado_Click;
 
-        _lblMensagemOrcamento.Location = new Point(12, 58);
-        _lblMensagemOrcamento.Size = new Size(870, 20);
+        _btnRemoverPlanejado.Location = new Point(690, 55);
+        _btnRemoverPlanejado.Size = new Size(190, 26);
+        _btnRemoverPlanejado.Click += (_, _) => RemoverValorPlanejadoSelecionado();
+        _dicas.SetToolTip(_btnRemoverPlanejado, "Tira do orçamento do mês a categoria selecionada na tabela abaixo.");
+
+        _lblMensagemOrcamento.Location = new Point(12, 59);
+        _lblMensagemOrcamento.Size = new Size(665, 20);
 
         grupo.Controls.AddRange([
             lblMes, _dtpMesOrcamento, lblCategoria, _cmbCategoriaOrcamento,
-            lblValor, _txtValorPlanejado, _btnDefinirPlanejado, _lblMensagemOrcamento
+            lblValor, _txtValorPlanejado, _btnDefinirPlanejado, _btnRemoverPlanejado, _lblMensagemOrcamento
         ]);
         return grupo;
     }
@@ -305,13 +347,6 @@ public class FormPrincipal : Form
 
     private GroupBox MontarGrupoVencimentos()
     {
-        var grupo = new GroupBox
-        {
-            Text = $"Lançamentos não pagos vencidos ou que vencem nos próximos {DiasAlerta} dias",
-            Location = new Point(12, 12),
-            Size = new Size(900, 578)
-        };
-
         _lblResumoAlertas.Location = new Point(12, 25);
         _lblResumoAlertas.Size = new Size(874, 22);
 
@@ -323,15 +358,29 @@ public class FormPrincipal : Form
         _btnMarcarPagoAlerta.Size = new Size(220, 30);
         _btnMarcarPagoAlerta.Click += (_, _) => MarcarSelecionadoComoPago(_dgvAlertas);
 
-        grupo.Controls.AddRange([_lblResumoAlertas, _dgvAlertas, _btnMarcarPagoAlerta]);
-        return grupo;
+        var lblPrazo = new Label { Text = "Avisar com antecedência de", Location = new Point(560, 539), AutoSize = true };
+        _nudDiasAlerta.Location = new Point(735, 535);
+        _nudDiasAlerta.Size = new Size(60, 23);
+        _nudDiasAlerta.Value = _servico.DiasAlerta;
+        _nudDiasAlerta.ValueChanged += (_, _) => AlterarPrazoDoAlerta();
+        var lblDias = new Label { Text = "dias", Location = new Point(802, 539), AutoSize = true };
+
+        _grpVencimentos.Controls.AddRange([_lblResumoAlertas, _dgvAlertas, _btnMarcarPagoAlerta, lblPrazo, _nudDiasAlerta, lblDias]);
+        return _grpVencimentos;
     }
+
+    // ---------- categorias ----------
 
     private void RecarregarCategorias()
     {
+        var selecionada = _lstCategorias.SelectedItem;
+
         _lstCategorias.Items.Clear();
         foreach (var categoria in _servico.Categorias.OrderBy(categoria => categoria.Id))
             _lstCategorias.Items.Add(categoria);
+
+        if (selecionada is not null && _lstCategorias.Items.Contains(selecionada))
+            _lstCategorias.SelectedItem = selecionada;
 
         RecarregarCategoriasDoLancamento();
         PreencherComboDeCategorias(_cmbCategoriaOrcamento, _servico.Categorias);
@@ -357,27 +406,6 @@ public class FormPrincipal : Form
             combo.SelectedIndex = 0;
     }
 
-    private static bool TentarLerValor(string texto, out decimal valor) =>
-        decimal.TryParse(texto.Trim().Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out valor);
-
-    /// <summary>
-    /// Executa uma operação do serviço e mostra no rótulo os erros esperados: dado inválido
-    /// (<see cref="ArgumentException"/>) ou falha ao salvar o arquivo (<see cref="ArquivoDeDadosException"/>).
-    /// </summary>
-    private static bool Executar(Label mensagem, Action operacao)
-    {
-        try
-        {
-            operacao();
-            return true;
-        }
-        catch (Exception ex) when (ex is ArgumentException or ArquivoDeDadosException)
-        {
-            mensagem.Text = ex.Message;
-            return false;
-        }
-    }
-
     private void BtnAdicionarCategoria_Click(object? sender, EventArgs e)
     {
         _lblMensagem.Text = string.Empty;
@@ -393,6 +421,44 @@ public class FormPrincipal : Form
         }
     }
 
+    private Categoria? CategoriaSelecionada()
+    {
+        if (_lstCategorias.SelectedItem is Categoria categoria)
+            return categoria;
+
+        Avisar("Selecione uma categoria na lista.");
+        return null;
+    }
+
+    private void EditarCategoriaSelecionada()
+    {
+        if (CategoriaSelecionada() is not { } categoria)
+            return;
+
+        using var janela = new FormEditarCategoria(categoria, (nome, tipo) => _servico.EditarCategoria(categoria, nome, tipo));
+        if (janela.ShowDialog(this) == DialogResult.OK)
+        {
+            RecarregarCategorias();
+            AtualizarTela();
+        }
+    }
+
+    private void ExcluirCategoriaSelecionada()
+    {
+        if (CategoriaSelecionada() is not { } categoria)
+            return;
+
+        if (!Confirmar($"Excluir a categoria \"{categoria.Nome}\"? Os valores planejados dela no orçamento também serão removidos."))
+            return;
+
+        _lblMensagem.Text = string.Empty;
+        Executar(_lblMensagem, () => _servico.ExcluirCategoria(categoria));
+        RecarregarCategorias();
+        AtualizarTela();
+    }
+
+    // ---------- lançamentos ----------
+
     private void BtnAdicionarLancamento_Click(object? sender, EventArgs e)
     {
         _lblMensagem.Text = string.Empty;
@@ -404,7 +470,7 @@ public class FormPrincipal : Form
             return;
         }
 
-        if (!TentarLerValor(_txtValor.Text, out var valor))
+        if (!EntradaDeValor.TentarLer(_txtValor.Text, out var valor))
         {
             _lblMensagem.Text = "Informe um valor numérico válido.";
             return;
@@ -429,8 +495,61 @@ public class FormPrincipal : Form
         }
     }
 
-    private void BtnFiltrar_Click(object? sender, EventArgs e) =>
-        AtualizarGrid((TipoLancamentoFiltro)_cmbFiltro.SelectedItem!);
+    private LancamentoFinanceiro? LancamentoSelecionado(DataGridView grade)
+    {
+        if (grade.CurrentRow?.DataBoundItem is LancamentoGridItem item)
+            return _servico.BuscarLancamento(item.Id);
+
+        Avisar("Selecione um lançamento na lista.");
+        return null;
+    }
+
+    private void EditarLancamentoSelecionado()
+    {
+        if (LancamentoSelecionado(_dgvLancamentos) is not { } lancamento)
+            return;
+
+        var tipo = lancamento is Receita ? TipoCategoria.Receita : TipoCategoria.Despesa;
+        using var janela = new FormEditarLancamento(
+            lancamento,
+            _servico.Categorias.Where(categoria => categoria.Tipo == tipo),
+            dados => _servico.EditarLancamento(lancamento.Id, dados.Vencimento, dados.Valor, dados.Descricao, dados.Categoria, dados.Origem, dados.Pago));
+
+        if (janela.ShowDialog(this) == DialogResult.OK)
+            AtualizarTela();
+    }
+
+    private void ExcluirLancamentoSelecionado()
+    {
+        if (LancamentoSelecionado(_dgvLancamentos) is not { } lancamento)
+            return;
+
+        if (!Confirmar($"Excluir \"{lancamento.Descricao}\" ({lancamento.Valor:C}, vencimento {lancamento.Data:d})?"))
+            return;
+
+        _lblMensagem.Text = string.Empty;
+        Executar(_lblMensagem, () => _servico.ExcluirLancamento(lancamento.Id));
+        AtualizarTela();
+    }
+
+    private void MarcarSelecionadoComoPago(DataGridView grade)
+    {
+        if (LancamentoSelecionado(grade) is not { } lancamento)
+            return;
+
+        try
+        {
+            _servico.MarcarComoPago(lancamento.Id);
+        }
+        catch (ArquivoDeDadosException ex)
+        {
+            MessageBox.Show(ex.Message, "Não foi possível salvar", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        AtualizarTela();
+    }
+
+    // ---------- orçamento ----------
 
     private void BtnDefinirPlanejado_Click(object? sender, EventArgs e)
     {
@@ -442,7 +561,7 @@ public class FormPrincipal : Form
             return;
         }
 
-        if (!TentarLerValor(_txtValorPlanejado.Text, out var valorPlanejado))
+        if (!EntradaDeValor.TentarLer(_txtValorPlanejado.Text, out var valorPlanejado))
         {
             _lblMensagemOrcamento.Text = "Informe um valor planejado numérico válido.";
             return;
@@ -456,22 +575,61 @@ public class FormPrincipal : Form
             _txtValorPlanejado.Clear();
     }
 
+    private void RemoverValorPlanejadoSelecionado()
+    {
+        _lblMensagemOrcamento.Text = string.Empty;
+
+        if (_dgvOrcamento.CurrentRow?.DataBoundItem is not OrcamentoGridItem item)
+        {
+            _lblMensagemOrcamento.Text = "Selecione na tabela a categoria que deve sair do orçamento.";
+            return;
+        }
+
+        var categoria = _servico.Categorias.Single(c => c.Id == item.CategoriaId);
+        var mes = _dtpMesOrcamento.Value;
+
+        Executar(_lblMensagemOrcamento, () =>
+        {
+            if (!_servico.RemoverValorPlanejado(mes.Month, mes.Year, categoria))
+                _lblMensagemOrcamento.Text = $"\"{categoria.Nome}\" não tem valor planejado neste mês.";
+        });
+        AtualizarOrcamento();
+    }
+
+    // ---------- vencimentos ----------
+
+    private void AlterarPrazoDoAlerta()
+    {
+        try
+        {
+            _servico.DefinirDiasAlerta((int)_nudDiasAlerta.Value);
+        }
+        catch (Exception ex) when (ex is ArgumentException or ArquivoDeDadosException)
+        {
+            MessageBox.Show(EntradaDeValor.MensagemParaUsuario(ex), "Prazo do alerta", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        AtualizarTela();
+    }
+
+    // ---------- atualização da tela ----------
+
     private void AtualizarTela()
     {
-        AtualizarGrid((TipoLancamentoFiltro)_cmbFiltro.SelectedItem!);
+        AtualizarGrid();
         AtualizarOrcamento();
         AtualizarAlertas();
     }
 
-    private void AtualizarGrid(TipoLancamentoFiltro filtro)
+    private void AtualizarGrid()
     {
-        var lancamentosFiltrados = _servico.FiltrarPorTipo(filtro);
+        var lancamentosFiltrados = _servico.FiltrarPorTipo((TipoLancamentoFiltro)_cmbFiltro.SelectedItem!);
 
         // Iteração tradicional (foreach) para projetar as entidades de domínio em itens de exibição.
         var itensParaExibicao = new List<LancamentoGridItem>();
         foreach (var lancamento in lancamentosFiltrados)
         {
-            itensParaExibicao.Add(LancamentoGridItem.DeLancamento(lancamento, DateTime.Today, DiasAlerta));
+            itensParaExibicao.Add(LancamentoGridItem.DeLancamento(lancamento, DateTime.Today, _servico.DiasAlerta));
         }
 
         _dgvLancamentos.DataSource = null;
@@ -484,11 +642,14 @@ public class FormPrincipal : Form
     {
         var receitas = _servico.CalcularTotal(TipoLancamentoFiltro.Receitas);
         var despesas = _servico.CalcularTotal(TipoLancamentoFiltro.Despesas);
-        var saldo = _servico.CalcularSaldo();
+        var realizado = _servico.CalcularSaldoRealizado();
+        var previsto = _servico.CalcularSaldoPrevisto();
 
         _lblResumo.Text = $"Receitas: {receitas:C}    Despesas: {despesas:C}";
-        _lblSaldo.Text = $"Saldo: {saldo:C}";
-        _lblSaldo.ForeColor = saldo < 0 ? Color.Firebrick : Color.DarkGreen;
+        _lblSaldoRealizado.Text = $"Saldo realizado: {realizado:C}";
+        _lblSaldoRealizado.ForeColor = realizado < 0 ? Color.Firebrick : Color.DarkGreen;
+        _lblSaldo.Text = $"Saldo previsto: {previsto:C}";
+        _lblSaldo.ForeColor = previsto < 0 ? Color.Firebrick : Color.DarkGreen;
     }
 
     private void AtualizarOrcamento()
@@ -515,8 +676,9 @@ public class FormPrincipal : Form
     private void AtualizarAlertas()
     {
         var hoje = DateTime.Today;
-        var alertas = _servico.ListarAlertasDeVencimento(hoje, DiasAlerta)
-            .Select(lancamento => LancamentoGridItem.DeLancamento(lancamento, hoje, DiasAlerta))
+        var dias = _servico.DiasAlerta;
+        var alertas = _servico.ListarAlertasDeVencimento(hoje)
+            .Select(lancamento => LancamentoGridItem.DeLancamento(lancamento, hoje, dias))
             .ToList();
 
         _dgvAlertas.DataSource = null;
@@ -524,8 +686,9 @@ public class FormPrincipal : Form
 
         var vencidos = alertas.Count(item => item.Vencido);
         var vencendo = alertas.Count - vencidos;
-        var descricao = DescreverAlertas(vencidos, vencendo);
+        var descricao = DescreverAlertas(vencidos, vencendo, dias);
 
+        _grpVencimentos.Text = $"Lançamentos não pagos vencidos ou que vencem nos próximos {dias} dias";
         _lblResumoAlertas.Text = alertas.Count == 0
             ? "Nenhuma conta vencida ou a vencer nos próximos dias."
             : $"{descricao}.";
@@ -535,35 +698,15 @@ public class FormPrincipal : Form
         _lblAviso.Text = $"Atenção: {descricao}. Veja a aba Vencimentos.";
     }
 
-    private static string DescreverAlertas(int vencidos, int vencendo)
+    private static string DescreverAlertas(int vencidos, int vencendo, int dias)
     {
         var partes = new List<string>();
         if (vencidos > 0)
             partes.Add($"{vencidos} lançamento(s) vencido(s)");
         if (vencendo > 0)
-            partes.Add($"{vencendo} vencendo em até {DiasAlerta} dias");
+            partes.Add($"{vencendo} vencendo em até {dias} dias");
 
         return string.Join(" e ", partes);
-    }
-
-    private void MarcarSelecionadoComoPago(DataGridView grade)
-    {
-        if (grade.CurrentRow?.DataBoundItem is not LancamentoGridItem item)
-        {
-            MessageBox.Show("Selecione um lançamento na lista.", "Marcar como pago", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        try
-        {
-            _servico.MarcarComoPago(item.Id);
-        }
-        catch (ArquivoDeDadosException ex)
-        {
-            MessageBox.Show(ex.Message, "Não foi possível salvar", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-
-        AtualizarTela();
     }
 
     private static void FormatarLinhaDeLancamento(DataGridView grade, DataGridViewCellFormattingEventArgs e)
@@ -602,4 +745,31 @@ public class FormPrincipal : Form
             e.FormattingApplied = true;
         }
     }
+
+    // ---------- utilitários ----------
+
+    /// <summary>
+    /// Executa uma operação do serviço e mostra no rótulo os erros esperados: dado inválido ou operação proibida
+    /// (<see cref="ArgumentException"/>) ou falha ao salvar o arquivo (<see cref="ArquivoDeDadosException"/>).
+    /// </summary>
+    private static bool Executar(Label mensagem, Action operacao)
+    {
+        try
+        {
+            operacao();
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or ArquivoDeDadosException)
+        {
+            mensagem.Text = EntradaDeValor.MensagemParaUsuario(ex);
+            return false;
+        }
+    }
+
+    private bool Confirmar(string pergunta) =>
+        MessageBox.Show(this, $"{pergunta}\n\nEssa ação não pode ser desfeita.", "Confirmar exclusão",
+            MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
+
+    private void Avisar(string mensagem) =>
+        MessageBox.Show(this, mensagem, Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
 }
